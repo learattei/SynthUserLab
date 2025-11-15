@@ -41,6 +41,10 @@ const HomePage: React.FC<HomePageProps> = ({ onStartNew, recentHistory, onSelect
             {recentHistory.map((entry, index) => {
               const latestVersion = entry.versions[entry.versions.length - 1];
               const wasSuccessful = latestVersion.sessionResults.every(r => r.completed);
+              const descriptionText = entry.tags.testType === 'User Journey'
+                ? 'Tested defined user journey'
+                : (entry.fullTask.length > 80 ? `${entry.fullTask.substring(0, 80)}...` : entry.fullTask);
+
               return (
                 <div
                   key={entry.id}
@@ -57,7 +61,7 @@ const HomePage: React.FC<HomePageProps> = ({ onStartNew, recentHistory, onSelect
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 pl-7">{latestVersion.timestamp}</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                      {entry.fullTask.length > 80 ? `${entry.fullTask.substring(0, 80)}...` : entry.fullTask}
+                      {descriptionText}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 truncate">
                     {entry.prototypeUrl}
