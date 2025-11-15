@@ -13,24 +13,24 @@ const AgentLog: React.FC<AgentLogProps> = ({ results }) => {
     }
 
     return (
-        <div className="w-full max-w-4xl mx-auto mt-8 p-6 bg-slate-800 rounded-xl shadow-lg animate-fade-in">
-            <h2 className="text-xl font-semibold mb-4 text-sky-300 flex items-center">
-                <ChatBubbleIcon className="w-6 h-6 mr-3" /> Agent Log
+        <div className="w-full mt-8 p-6 bg-white border border-slate-200/80 rounded-xl shadow-sm animate-fade-in">
+            <h2 className="text-xl font-bold mb-4 text-violet-600 flex items-center">
+                <ChatBubbleIcon className="w-6 h-6 mr-3" /> Live Agent Log
             </h2>
-            <div className="space-y-6 max-h-[400px] overflow-y-auto pr-3 bg-slate-900/50 p-4 rounded-lg">
+            <div className="space-y-6 max-h-[400px] overflow-y-auto pr-3 bg-slate-50 p-4 rounded-lg border border-slate-200">
                 {results.map(result => (
                     <div key={result.persona.id} className="animate-slide-up">
-                        <div className="flex items-center gap-2 mb-2 p-2 bg-slate-700 rounded-md">
-                            <UserIcon className="w-5 h-5 text-sky-400" />
-                            <h3 className="font-bold text-lg text-white">{result.persona.name}</h3>
+                        <div className="flex items-center gap-3 mb-3 p-2 bg-slate-200 rounded-md">
+                            <UserIcon className="w-5 h-5 text-violet-600" />
+                            <h3 className="font-bold text-lg text-slate-800">{result.persona.name}</h3>
                         </div>
-                        <ul className="space-y-3 pl-4 border-l-2 border-slate-700">
+                        <ul className="space-y-4 pl-4 border-l-2 border-slate-300">
                             {result.steps.map((step, index) => (
                                 <li key={index}>
-                                    <p className="text-sm text-slate-300 italic">
-                                        <span className="text-slate-500 font-mono mr-2">{`> `}</span>"{step.thought}"
+                                    <p className="text-sm text-slate-600 italic">
+                                        "{step.thought}"
                                     </p>
-                                    <pre className="bg-slate-800/50 mt-2 p-2 rounded text-xs text-sky-300 overflow-x-auto font-mono">
+                                    <pre className="bg-slate-800 mt-2 p-2 rounded text-xs text-teal-300 overflow-x-auto font-mono">
                                         <code>{step.code}</code>
                                     </pre>
                                 </li>

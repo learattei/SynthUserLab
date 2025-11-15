@@ -175,7 +175,7 @@ const App: React.FC = () => {
                 const isSimulating = appState === 'SIMULATING' || appState === 'ANALYZING';
                 const isGeneratingPersonas = appState === 'GENERATING_PERSONAS';
                 return (
-                    <>
+                    <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
                         <InputForm
                             testMode={testMode}
                             setTestMode={setTestMode}
@@ -213,24 +213,24 @@ const App: React.FC = () => {
                         {isSimulating && testMode === 'BUSINESS_VALIDATION' && (
                              <AgentLog results={sessionResults} />
                         )}
-                   </>
+                   </div>
                 );
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
-            <header className="text-center mb-8">
-                <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500">
-                    AI UX Lab
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center p-4 sm:p-6 md:p-8">
+            <header className="w-full max-w-5xl mx-auto text-center py-8">
+                <h1 className="text-4xl md:text-5xl font-bold text-slate-900">
+                    Synth Labs
                 </h1>
-                <p className="text-slate-400 mt-2 max-w-2xl mx-auto">
-                    Get instant UX feedback on your app ideas from a team of AI-powered user personas.
+                <p className="text-slate-600 mt-3 max-w-2xl mx-auto text-lg">
+                    Find every UX bug. Before your users do.
                 </p>
             </header>
-            <main className="w-full">
+            <main className="w-full flex-grow flex flex-col items-center">
                 {error && (
-                    <div className="my-4 p-4 bg-red-900/50 border border-red-500 text-red-300 rounded-lg max-w-4xl mx-auto text-center">
+                    <div className="my-4 p-4 bg-red-100 border border-red-300 text-red-800 rounded-lg max-w-4xl mx-auto text-center">
                         <strong>Error:</strong> {error}
                     </div>
                 )}
