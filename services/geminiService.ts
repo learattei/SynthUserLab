@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Persona, SessionResult, AnalysisResult, FrictionSummary, BusinessAnalysisResult } from '../types';
+import { Persona, SessionResult, AnalysisResult, FrictionSummary } from '../types';
 
 if (!process.env.API_KEY) {
     console.error("API_KEY environment variable not set.");
@@ -88,6 +88,32 @@ export const generatePersonasFromIdea = async (
     }
 };
 
+export const suggestJourneySteps = async (url: string): Promise<string[]> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `You are a UX expert. Analyze the purpose of the website at the URL: \`${url}\`. 
+            
+            Based on your analysis, suggest a list of 5-7 common, high-level user journey steps for this type of application.
+            For example, for an e-commerce site, steps might include 'Search for an item', 'Add item to cart', 'View cart', 'Proceed to checkout'.
+            
+            Return the result as a JSON array of strings.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                },
+            }
+        });
+        const stepsJson = JSON.parse(response.text);
+        return stepsJson as string[];
+    } catch (error) {
+        console.error("Error suggesting journey steps:", error);
+        throw new Error("Failed to suggest journey steps.");
+    }
+}
+
 
 export const runSimulation = async (
     userTask: string,
@@ -103,7 +129,7 @@ Persona: "${persona.description}".
 Your primary goal is to: "${goal}".
 Your technical skill level is: ${persona.skillLevel}.
 
-You have been given a URL and a specific task to complete. Your job is to write a sequence of Python Selenium commands to accomplish this task.
+You have been given a URL and a specific task to complete. Your job is to write a sequence of Python Selenium commands to accomplish this task. The task may be a single goal or a sequence of steps; follow them in order.
 
 ---
 Your Task: "${userTask}"
@@ -269,62 +295,39 @@ export const summarizeFrictionPoints = async (sessionResults: SessionResult[]): 
     }
 };
 
-export const analyzeBusinessValidation = async (sessionResults: SessionResult[]): Promise<BusinessAnalysisResult> => {
+export const generateHistorySummary = async (
+    task: string, 
+    results: SessionResult[]
+): Promise<{ title: string; description: string }> => {
     try {
-        const completedCount = sessionResults.filter(r => r.completed).length;
-        const conversionRate = sessionResults.length > 0 ? Math.round((completedCount / sessionResults.length) * 100) : 0;
-
-        const failedSessions = sessionResults.filter(r => !r.completed);
-        if (failedSessions.length === 0) {
-            return {
-                conversionRate,
-                topFrictionPoints: [{ point: "All users successfully completed the task. No major friction points identified in this funnel.", impact: 'Low' }]
-            };
-        }
-
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-pro",
-            contents: `You are a product manager analyzing user simulation logs to identify business-critical issues.
+            model: "gemini-2.5-flash",
+            contents: `Analyze the following user simulation results for the task: "${task}".
             
-            The goal was to test a key conversion funnel. The simulation had a ${conversionRate}% success rate.
-            
-            Analyze the following logs from the FAILED sessions. Identify the top 3 most critical friction points that caused users to drop off or fail the task. For each point, describe the issue and rate its impact on conversion.
-            
-            Focus on actionable business insights. For example, instead of "User couldn't find a button", say "Unclear navigation in the checkout flow is causing drop-off."
+            Results:
+            ${JSON.stringify(results.map(r => ({ persona: r.persona.name, completed: r.completed, thoughts: r.steps.map(s => s.thought).slice(0, 2) })), null, 2)}
 
-            Failed Session Logs: ${JSON.stringify(failedSessions, null, 2)}
-            
+            Based on this, generate:
+            1.  A short, concise title for this simulation test (max 5 words).
+            2.  A single-sentence description summarizing the overall outcome.
+
             Provide the output as a JSON object.`,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        topFrictionPoints: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    point: { type: Type.STRING, description: "A concise description of the friction point." },
-                                    impact: { type: Type.STRING, enum: ['High', 'Medium', 'Low'], description: "The estimated impact on conversion." }
-                                },
-                                required: ["point", "impact"],
-                            },
-                        },
+                        title: { type: Type.STRING },
+                        description: { type: Type.STRING },
                     },
-                    required: ["topFrictionPoints"],
+                    required: ["title", "description"],
                 },
             },
         });
-        
-        const analysisJson = JSON.parse(response.text);
-        return {
-            conversionRate,
-            topFrictionPoints: analysisJson.topFrictionPoints
-        };
-
+        const summaryJson = JSON.parse(response.text);
+        return summaryJson as { title: string; description: string };
     } catch (error) {
-        console.error("Error analyzing business validation:", error);
-        throw new Error("Failed to generate business validation report.");
+        console.error("Error generating history summary:", error);
+        throw new Error("Failed to generate history summary.");
     }
 };

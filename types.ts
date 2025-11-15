@@ -1,3 +1,4 @@
+
 export interface Persona {
   id: string;
   name: string;
@@ -30,25 +31,42 @@ export interface AnalysisResult {
   issues: AnalysisIssue[];
 }
 
+// Fix: Add the missing BusinessAnalysisResult interface.
+export interface BusinessAnalysisResult {
+  conversionRate: number;
+  topFrictionPoints: {
+    impact: 'High' | 'Medium' | 'Low';
+    point: string;
+  }[];
+}
+
 export interface FrictionSummary {
   summary: string;
   suggestion: string;
 }
 
-export interface BusinessAnalysisResult {
-    conversionRate: number;
-    topFrictionPoints: {
-        point: string;
-        impact: 'High' | 'Medium' | 'Low';
-    }[];
-}
+export type TestMode = 'SINGLE_TASK' | 'USER_JOURNEY';
 
-export type TestMode = 'UX_TESTING' | 'BUSINESS_VALIDATION';
+export type PersonaTypeTag = 'Novice' | 'Expert' | 'Custom' | 'Mixed';
+export type TestTypeTag = 'Specific Task' | 'User Journey';
+
+export interface HistoryEntry {
+    id: string;
+    title: string;
+    description: string;
+    fullTask: string;
+    timestamp: string;
+    tags: {
+        testType: TestTypeTag;
+        personaType: PersonaTypeTag;
+    };
+    sessionResults: SessionResult[];
+    analysis: AnalysisResult | null;
+}
 
 export type AppState =
   | 'CONFIG'
   | 'GENERATING_PERSONAS'
   | 'SIMULATING'
   | 'ANALYZING'
-  | 'SHOWING_RESULTS'
-  | 'SHOWING_BUSINESS_REPORT';
+  | 'SHOWING_RESULTS';

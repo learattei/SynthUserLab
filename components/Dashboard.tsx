@@ -9,22 +9,22 @@ import ClipboardIcon from './icons/ClipboardIcon';
 interface DashboardProps {
   sessionResults: SessionResult[];
   analysis: AnalysisResult | null;
-  onReset: () => void;
-  userTask: string;
+  onNewSimulation: () => void;
+  fullTask: string;
 }
 
 const emotionConfig = {
-    'Satisfied': { icon: '😊', color: 'text-green-700', bg: 'bg-green-100' },
-    'Curious': { icon: '🤔', color: 'text-sky-700', bg: 'bg-sky-100' },
-    'Neutral': { icon: '😐', color: 'text-slate-600', bg: 'bg-slate-100' },
-    'Confused': { icon: '😕', color: 'text-amber-700', bg: 'bg-amber-100' },
-    'Frustrated': { icon: '😠', color: 'text-red-700', bg: 'bg-red-100' }
+    'Satisfied': { icon: '😊', color: 'text-green-700 dark:text-green-300', bg: 'bg-green-50 dark:bg-green-950/50' },
+    'Curious': { icon: '🤔', color: 'text-sky-700 dark:text-sky-300', bg: 'bg-sky-50 dark:bg-sky-950/50' },
+    'Neutral': { icon: '😐', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800/50' },
+    'Confused': { icon: '😕', color: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-50 dark:bg-amber-950/50' },
+    'Frustrated': { icon: '😠', color: 'text-red-700 dark:text-red-300', bg: 'bg-red-50 dark:bg-red-950/50' }
 };
 
 const severityConfig = {
-    'High': 'bg-red-500',
-    'Medium': 'bg-amber-500',
-    'Low': 'bg-sky-500'
+    'High': 'bg-red-400',
+    'Medium': 'bg-amber-400',
+    'Low': 'bg-blue-400'
 };
 
 const AIPromptCard: React.FC<{ issue: AnalysisIssue }> = ({ issue }) => {
@@ -39,23 +39,23 @@ const AIPromptCard: React.FC<{ issue: AnalysisIssue }> = ({ issue }) => {
     };
 
     return (
-        <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-200">
+        <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
             <div className="flex items-center mb-1">
                 <span className={`w-3 h-3 rounded-full mr-2 ${severityConfig[issue.severity]}`}></span>
-                <h3 className="font-semibold text-slate-800">{issue.issue}</h3>
+                <h3 className="font-semibold text-slate-800 dark:text-slate-100">{issue.issue}</h3>
             </div>
-            <p className="text-sm text-slate-600 mb-4 pl-5"><strong>Recommendation:</strong> {issue.recommendation}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 pl-5"><strong>Recommendation:</strong> {issue.recommendation}</p>
             
-            <div className="mt-4 pt-4 border-t border-slate-200/80">
-                <h4 className="text-xs font-semibold text-violet-600 uppercase tracking-wider mb-2">Google AI Studio Prompt</h4>
+            <div className="mt-4 pt-4 border-t border-slate-200/80 dark:border-slate-700/80">
+                <h4 className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider mb-2">Google AI Studio Prompt</h4>
                 <div className="relative group">
-                    <pre className="text-xs text-slate-300 bg-slate-800 p-3 rounded-md font-mono whitespace-pre-wrap w-full overflow-x-auto">
+                    <pre className="text-xs text-slate-300 bg-slate-900 dark:bg-slate-950 p-3 rounded-lg font-mono whitespace-pre-wrap w-full overflow-x-auto">
                         <code>{aiPrompt}</code>
                     </pre>
                     <button 
                         onClick={handleCopy} 
                         title="Copy AI Studio Prompt" 
-                        className="absolute top-2 right-2 p-1.5 bg-slate-700 rounded-md text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-600 hover:text-white"
+                        className="absolute top-2 right-2 p-1.5 bg-slate-800 dark:bg-slate-800 rounded-md text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-700 dark:hover:bg-slate-700 hover:text-white"
                     >
                         {copied ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <ClipboardIcon className="w-5 h-5"/>}
                     </button>
@@ -65,7 +65,7 @@ const AIPromptCard: React.FC<{ issue: AnalysisIssue }> = ({ issue }) => {
     );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ sessionResults, analysis, onReset, userTask }) => {
+const Dashboard: React.FC<DashboardProps> = ({ sessionResults, analysis, onNewSimulation, fullTask }) => {
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(sessionResults[0]?.persona.id || null);
 
   const selectedSession = useMemo(() => {
@@ -79,10 +79,10 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionResults, analysis, onReset
   return (
     <div className="w-full max-w-7xl mx-auto p-4 md:p-0 animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Simulation Report</h1>
+        <h1 className="font-serif text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100">Simulation Report</h1>
         <button
-          onClick={onReset}
-          className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold py-2 px-5 rounded-lg transition-colors duration-200"
+          onClick={onNewSimulation}
+          className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 font-semibold py-2 px-5 rounded-xl transition-colors duration-200"
         >
           Run New Simulation
         </button>
@@ -91,13 +91,13 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionResults, analysis, onReset
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
         {/* Left Column */}
         <div className="flex flex-col gap-8">
-            <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm animate-slide-up">
-                <h2 className="text-xl font-bold mb-4 text-violet-600 flex items-center"><LightbulbIcon className="w-6 h-6 mr-3" /> AI Analysis Summary</h2>
-                <p className="text-slate-600 leading-relaxed">{analysis.summary}</p>
+            <section className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-6 shadow-soft animate-slide-up">
+                <h2 className="font-serif text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400 flex items-center"><LightbulbIcon className="w-6 h-6 mr-3" /> AI Analysis Summary</h2>
+                <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{analysis.summary}</p>
             </section>
             
-            <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                <h2 className="text-xl font-bold mb-4 text-violet-600">Identified UX Issues</h2>
+            <section className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-6 shadow-soft animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                <h2 className="font-serif text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400">Identified UX Issues</h2>
                 <div className="space-y-4">
                     {analysis.issues.map((issue, index) => <AIPromptCard key={index} issue={issue} />)}
                 </div>
@@ -106,23 +106,23 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionResults, analysis, onReset
         
         {/* Right Column */}
         <div className="flex flex-col gap-8">
-            <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm animate-slide-up" style={{ animationDelay: '0.2s' }}>
-                <h2 className="text-xl font-bold mb-4 text-violet-600">Key Metrics</h2>
+            <section className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-6 shadow-soft animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                <h2 className="font-serif text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400">Key Metrics</h2>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-slate-600">
-                        <thead className="text-xs text-violet-600 uppercase bg-violet-50">
+                    <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300">
+                        <thead className="text-xs text-blue-800 dark:text-blue-300 uppercase bg-blue-100/60 dark:bg-blue-950/50">
                             <tr>
-                                <th scope="col" className="px-4 py-3 rounded-l-lg">Persona</th>
+                                <th scope="col" className="px-4 py-3 rounded-l-xl">Persona</th>
                                 <th scope="col" className="px-4 py-3 text-center">Completed</th>
-                                <th scope="col" className="px-4 py-3 text-right rounded-r-lg">Time Taken</th>
+                                <th scope="col" className="px-4 py-3 text-right rounded-r-xl">Time Taken</th>
                             </tr>
                         </thead>
                         <tbody>
                             {sessionResults.map((result) => (
-                                <tr key={result.persona.id} onClick={() => setSelectedPersonaId(result.persona.id)} className={`border-b border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors ${selectedPersonaId === result.persona.id ? 'bg-violet-50' : ''}`}>
-                                    <td scope="row" className="px-4 py-4 font-medium text-slate-900 whitespace-nowrap">{result.persona.name}</td>
+                                <tr key={result.persona.id} onClick={() => setSelectedPersonaId(result.persona.id)} className={`border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors ${selectedPersonaId === result.persona.id ? 'bg-blue-50 dark:bg-blue-950/50' : ''}`}>
+                                    <td scope="row" className="px-4 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{result.persona.name}</td>
                                     <td className="px-4 py-4 flex justify-center">
-                                        {result.completed ? <CheckCircleIcon className="w-6 h-6 text-teal-500" /> : <XCircleIcon className="w-6 h-6 text-red-500" />}
+                                        {result.completed ? <CheckCircleIcon className="w-6 h-6 text-blue-500" /> : <XCircleIcon className="w-6 h-6 text-red-500" />}
                                     </td>
                                     <td className="px-4 py-4 text-right font-medium">{result.timeTaken}s</td>
                                 </tr>
@@ -132,30 +132,30 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionResults, analysis, onReset
                 </div>
             </section>
 
-            <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm animate-slide-up" style={{ animationDelay: '0.3s' }}>
+            <section className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-6 shadow-soft animate-slide-up" style={{ animationDelay: '0.3s' }}>
                 {selectedSession ? (
                     <>
-                    <h2 className="text-xl font-bold mb-4 text-violet-600">Session Replay: {selectedSession.persona.name}</h2>
-                    <div className="mb-6 p-4 bg-slate-100 rounded-lg border border-slate-200">
-                        <p className="flex items-center text-lg font-bold mb-2 text-slate-900"><UserIcon className="w-5 h-5 mr-2" /> {selectedSession.persona.name} ({selectedSession.persona.skillLevel})</p>
-                        <p className="text-sm text-slate-600 mb-2"><strong>Task:</strong> {userTask}</p>
-                        <p className="text-sm text-slate-500 italic">"{selectedSession.persona.description}"</p>
+                    <h2 className="font-serif text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400">Session Replay: {selectedSession.persona.name}</h2>
+                    <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/80">
+                        <p className="flex items-center text-lg font-bold mb-2 text-slate-900 dark:text-slate-100"><UserIcon className="w-5 h-5 mr-2" /> {selectedSession.persona.name} ({selectedSession.persona.skillLevel})</p>
+                        <div className="text-sm text-slate-700 dark:text-slate-300 mb-2"><strong>Task:</strong> <pre className="whitespace-pre-wrap font-sans">{fullTask}</pre></div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 italic">"{selectedSession.persona.description}"</p>
                     </div>
                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
                         {selectedSession.steps.map((step, index) => {
                             const config = emotionConfig[step.emotion];
                             const isCritical = step.thought.startsWith("UX Friction: Critical:");
                             return (
-                                <div key={index} className={`p-4 rounded-lg border-l-4 ${isCritical ? 'border-red-400 bg-red-50' : `border-slate-300 ${config.bg}`}`}>
-                                    <p className="font-mono text-xs text-slate-500 mb-2">STEP {index + 1}</p>
-                                    <div className="pl-4 border-l-2 border-slate-300/80 mb-3">
-                                        <p className={`text-sm italic ${isCritical ? 'text-red-700 font-semibold' : 'text-slate-700'}`}>"{step.thought}"</p>
+                                <div key={index} className={`p-4 rounded-xl border-l-4 ${isCritical ? 'border-red-400 bg-red-50 dark:bg-red-950/50' : `border-slate-300 dark:border-slate-600 ${config.bg}`}`}>
+                                    <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mb-2">STEP {index + 1}</p>
+                                    <div className="pl-4 border-l-2 border-slate-300/80 dark:border-slate-600/80 mb-3">
+                                        <p className={`text-sm italic ${isCritical ? 'text-red-700 dark:text-red-300 font-semibold' : 'text-slate-800 dark:text-slate-200'}`}>"{step.thought}"</p>
                                         <p className={`mt-1 text-sm font-medium flex items-center gap-2 ${config.color}`}>
                                             <span>{config.icon}</span>
                                             {step.emotion}
                                         </p>
                                     </div>
-                                    <pre className="bg-slate-800 text-teal-300 p-3 rounded-md overflow-x-auto text-sm font-mono">
+                                    <pre className="bg-slate-900 text-emerald-300 dark:bg-slate-950 dark:text-emerald-400 p-3 rounded-lg overflow-x-auto text-sm font-mono">
                                         <code>{step.code}</code>
                                     </pre>
                                 </div>
@@ -165,7 +165,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionResults, analysis, onReset
                     </>
                 ) : (
                     <div className="flex items-center justify-center h-full min-h-[200px]">
-                        <p className="text-slate-500">Select a persona to view their session replay.</p>
+                        <p className="text-slate-500 dark:text-slate-400">Select a persona to view their session replay.</p>
                     </div>
                 )}
             </section>
