@@ -50,19 +50,26 @@ export type TestMode = 'SINGLE_TASK' | 'USER_JOURNEY';
 export type PersonaTypeTag = 'Novice' | 'Expert' | 'Custom' | 'Mixed';
 export type TestTypeTag = 'Specific Task' | 'User Journey';
 
+export interface SimulationVersion {
+    version: number;
+    timestamp: string;
+    sessionResults: SessionResult[];
+    analysis: AnalysisResult | null;
+}
+
 export interface HistoryEntry {
     id: string;
     title: string;
-    description: string;
     fullTask: string;
-    timestamp: string;
+    prototypeUrl: string;
     tags: {
         testType: TestTypeTag;
         personaType: PersonaTypeTag;
     };
-    sessionResults: SessionResult[];
-    analysis: AnalysisResult | null;
+    personas: Persona[]; // The personas used for all versions
+    versions: SimulationVersion[];
 }
+
 
 export type AppState =
   | 'CONFIG'

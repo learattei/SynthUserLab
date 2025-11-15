@@ -2,11 +2,12 @@ import React from 'react';
 import { BusinessAnalysisResult } from '../types';
 import DownloadIcon from './icons/DownloadIcon';
 import Loader from './Loader';
+import ArrowLeftIcon from './icons/ArrowLeftIcon';
 
 interface BusinessReportProps {
   result: BusinessAnalysisResult | null;
   task: string;
-  onNewSimulation: () => void;
+  onGoHome: () => void;
 }
 
 const impactConfig = {
@@ -15,7 +16,7 @@ const impactConfig = {
     'Low': { color: 'text-sky-700 dark:text-sky-300', bg: 'bg-sky-100 dark:bg-sky-950/50', border: 'border-sky-200 dark:border-sky-800' },
 };
 
-const BusinessReport: React.FC<BusinessReportProps> = ({ result, task, onNewSimulation }) => {
+const BusinessReport: React.FC<BusinessReportProps> = ({ result, task, onGoHome }) => {
     
     const handleExport = () => {
         if (!result) return;
@@ -50,16 +51,19 @@ const BusinessReport: React.FC<BusinessReportProps> = ({ result, task, onNewSimu
     return (
         <div className="w-full max-w-5xl mx-auto p-8 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl shadow-soft animate-fade-in space-y-8">
              <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div>
-                    <h1 className="font-serif text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100">Business Validation Report</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Task: <span className="font-semibold text-slate-700 dark:text-slate-300">{task}</span></p>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={onGoHome}
+                        className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-full transition-colors duration-200"
+                        aria-label="Back to Home"
+                    >
+                        <ArrowLeftIcon className="w-6 h-6" />
+                    </button>
+                    <div>
+                        <h1 className="font-serif text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100">Business Validation Report</h1>
+                        <p className="text-slate-500 dark:text-slate-400 mt-1">Task: <span className="font-semibold text-slate-700 dark:text-slate-300">{task}</span></p>
+                    </div>
                 </div>
-                <button
-                onClick={onNewSimulation}
-                className="bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200 font-semibold py-2 px-5 rounded-xl transition-colors duration-200"
-                >
-                Run New Simulation
-                </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">

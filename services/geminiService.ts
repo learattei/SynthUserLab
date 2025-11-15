@@ -298,7 +298,7 @@ export const summarizeFrictionPoints = async (sessionResults: SessionResult[]): 
 export const generateHistorySummary = async (
     task: string, 
     results: SessionResult[]
-): Promise<{ title: string; description: string }> => {
+): Promise<{ title: string }> => {
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -309,7 +309,6 @@ export const generateHistorySummary = async (
 
             Based on this, generate:
             1.  A short, concise title for this simulation test (max 5 words).
-            2.  A single-sentence description summarizing the overall outcome.
 
             Provide the output as a JSON object.`,
             config: {
@@ -318,14 +317,13 @@ export const generateHistorySummary = async (
                     type: Type.OBJECT,
                     properties: {
                         title: { type: Type.STRING },
-                        description: { type: Type.STRING },
                     },
-                    required: ["title", "description"],
+                    required: ["title"],
                 },
             },
         });
         const summaryJson = JSON.parse(response.text);
-        return summaryJson as { title: string; description: string };
+        return summaryJson as { title: string };
     } catch (error) {
         console.error("Error generating history summary:", error);
         throw new Error("Failed to generate history summary.");

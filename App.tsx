@@ -1,11 +1,14 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { AppState, Persona, SessionResult, AnalysisResult, FrictionSummary, TestMode, HistoryEntry, PersonaTypeTag, TestTypeTag } from './types';
+// Fix: Add the missing `FrictionSummary` type to the import statement.
+import { AppState, Persona, SessionResult, AnalysisResult, TestMode, HistoryEntry, PersonaTypeTag, TestTypeTag, FrictionSummary, SimulationVersion } from './types';
 import { runSimulation, analyzeResults, summarizeFrictionPoints, generatePersonas, generatePersonasFromIdea, suggestJourneySteps, generateHistorySummary } from './services/geminiService';
 import InputForm from './components/InputForm';
 import Dashboard from './components/Dashboard';
 import AgentLog from './components/AgentLog';
 import AISummary from './components/AISummary';
 import HistorySidebar from './components/HistorySidebar';
+import HomePage from './components/HomePage';
+import ProgressModal from './components/ProgressModal';
 
 const hardcodedPersonas: Persona[] = [
     {
@@ -24,11 +27,26 @@ const hardcodedPersonas: Persona[] = [
     }
 ];
 
+const funnyMessages = [
+    "Waking up the AI agents...",
+    "Brewing coffee for the personas...",
+    "Teaching the novice user how to click...",
+    "Asking the expert user to please slow down...",
+    "Finding the tiniest pixel misalignment...",
+    "Calibrating the frustration-o-meter...",
+    "Polishing the Selenium scripts...",
+    "Convincing the AI it's not a robot...",
+    "Analyzing subconscious user twitches...",
+    "Generating alternative facts for the report...",
+    "Hiding the 'skip ad' button...",
+    "Debating the meaning of 'intuitive' with the AI..."
+];
+
 const App: React.FC = () => {
     const [theme, setTheme] = useState<'light' | 'dark'>('light');
     const [appState, setAppState] = useState<AppState | 'IDLE'>('IDLE');
     const [history, setHistory] = useState<HistoryEntry[]>([]);
-    const [activeViewId, setActiveViewId] = useState<string | 'new'>('new');
+    const [activeView, setActiveView] = useState<string | 'new' | 'home'>('home');
 
     // Form/Config State
     const [testMode, setTestMode] = useState<TestMode>('SINGLE_TASK');
@@ -48,6 +66,11 @@ const App: React.FC = () => {
     const [frictionSummary, setFrictionSummary] = useState<FrictionSummary | null>(null);
     const [isSummaryLoading, setIsSummaryLoading] = useState<boolean>(false);
     
+    // Progress Modal State
+    const [isProgressModalVisible, setIsProgressModalVisible] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [progressMessage, setProgressMessage] = useState('');
+
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -76,9 +99,9 @@ const App: React.FC = () => {
     };
 
     const activeHistoryEntry = useMemo(() => {
-        if (activeViewId === 'new') return null;
-        return history.find(h => h.id === activeViewId);
-    }, [activeViewId, history]);
+        if (activeView === 'new' || activeView === 'home') return null;
+        return history.find(h => h.id === activeView);
+    }, [activeView, history]);
     
     const currentTask = useMemo(() => {
         if (testMode === 'SINGLE_TASK') return userTask;
@@ -149,8 +172,42 @@ const App: React.FC = () => {
         }
     }
 
+    const startProgressModal = () => {
+        setIsProgressModalVisible(true);
+        setProgress(0);
+        setProgressMessage(funnyMessages[0]);
+
+        const progressInterval = setInterval(() => {
+            setProgress(oldProgress => {
+                if (oldProgress >= 95) return 95;
+                const diff = Math.random() * 10;
+                return Math.min(oldProgress + diff, 95);
+            });
+        }, 800);
+
+        let messageIndex = 0;
+        const messageInterval = setInterval(() => {
+            messageIndex = (messageIndex + 1) % funnyMessages.length;
+            setProgressMessage(funnyMessages[messageIndex]);
+        }, 3000);
+
+        return { progressInterval, messageInterval };
+    };
+
+    const stopProgressModal = (intervals: { progressInterval: NodeJS.Timeout, messageInterval: NodeJS.Timeout }) => {
+        clearInterval(intervals.progressInterval);
+        clearInterval(intervals.messageInterval);
+        setProgress(100);
+        setTimeout(() => {
+            setIsProgressModalVisible(false);
+            setAppState('IDLE');
+        }, 500);
+    };
+
     const handleStartSimulation = useCallback(async () => {
         if (selectedPersonaIds.size === 0 || !currentTask.trim() || !prototypeUrl.trim()) return;
+
+        const intervals = startProgressModal();
 
         setAppState('SIMULATING');
         setError(null);
@@ -196,33 +253,86 @@ const App: React.FC = () => {
 
             const testTypeTag: TestTypeTag = testMode === 'SINGLE_TASK' ? 'Specific Task' : 'User Journey';
             const personaTypeTag = getPersonaTypeTag();
-
-            const newHistoryEntry: HistoryEntry = {
-                id: `sim-${Date.now()}`,
-                title: historySummary.title,
-                description: historySummary.description,
-                fullTask: currentTask,
+            
+            const firstVersion: SimulationVersion = {
+                version: 1,
                 timestamp: new Date().toLocaleString(),
-                tags: {
-                    testType: testTypeTag,
-                    personaType: personaTypeTag,
-                },
                 sessionResults: liveResults,
                 analysis: finalAnalysis,
             };
 
+            const newHistoryEntry: HistoryEntry = {
+                id: `sim-${Date.now()}`,
+                title: historySummary.title,
+                fullTask: currentTask,
+                prototypeUrl: prototypeUrl,
+                tags: {
+                    testType: testTypeTag,
+                    personaType: personaTypeTag,
+                },
+                personas: selectedPersonas,
+                versions: [firstVersion],
+            };
+
             setHistory(prev => [newHistoryEntry, ...prev]);
-            setActiveViewId(newHistoryEntry.id);
+            setActiveView(newHistoryEntry.id);
 
         } catch (e: any) {
             setError(e.message || 'An unknown error occurred during simulation.');
         } finally {
-            setAppState('IDLE');
+            stopProgressModal(intervals);
         }
     }, [selectedPersonaIds, currentTask, prototypeUrl, generatedPersonas, testMode, journeySteps]);
+    
+    const handleRerunSimulation = useCallback(async (historyEntryId: string) => {
+        const entryToRerun = history.find(h => h.id === historyEntryId);
+        if (!entryToRerun) {
+            setError("Could not find the simulation to rerun.");
+            return;
+        }
+
+        const intervals = startProgressModal();
+
+        setAppState('SIMULATING');
+        setError(null);
+        setActiveView(historyEntryId);
+
+        const { fullTask, prototypeUrl, personas } = entryToRerun;
+        const liveResults: SessionResult[] = [];
+
+        try {
+            for (const persona of personas) {
+                const result = await runSimulation(fullTask, prototypeUrl, persona);
+                const sessionResult = { ...result, persona };
+                liveResults.push(sessionResult);
+            }
+
+            setAppState('ANALYZING');
+            const finalAnalysis = await analyzeResults(liveResults);
+            
+            const newVersion: SimulationVersion = {
+                version: entryToRerun.versions.length + 1,
+                timestamp: new Date().toLocaleString(),
+                sessionResults: liveResults,
+                analysis: finalAnalysis,
+            };
+
+            setHistory(prevHistory => prevHistory.map(h => 
+                h.id === historyEntryId 
+                    ? { ...h, versions: [...h.versions, newVersion] }
+                    : h
+            ));
+
+        } catch (e: any) {
+            setError(e.message || 'An unknown error occurred during the rerun.');
+        } finally {
+            stopProgressModal(intervals);
+        }
+    }, [history]);
+
 
     const handleNewSimulation = () => {
-        setActiveViewId('new');
+        setActiveView('new');
         setTestMode('SINGLE_TASK');
         setUserTask('');
         setJourneySteps([]);
@@ -239,9 +349,18 @@ const App: React.FC = () => {
         setError(null);
         setAppState('IDLE');
     };
+
+    const handleGoHome = () => {
+        setActiveView('home');
+        setError(null);
+    };
     
     const renderMainContent = () => {
-        if (activeViewId === 'new') {
+        if (activeView === 'home') {
+             return <HomePage onStartNew={() => setActiveView('new')} recentHistory={history.slice(0, 3)} onSelectHistory={setActiveView} />;
+        }
+        
+        if (activeView === 'new') {
             const isSimulating = appState === 'SIMULATING' || appState === 'ANALYZING';
             const isGeneratingPersonas = appState === 'GENERATING_PERSONAS';
             return (
@@ -290,7 +409,8 @@ const App: React.FC = () => {
         }
 
         if (activeHistoryEntry) {
-            return <Dashboard sessionResults={activeHistoryEntry.sessionResults} analysis={activeHistoryEntry.analysis} onNewSimulation={handleNewSimulation} fullTask={activeHistoryEntry.fullTask} />;
+            const isBusy = appState === 'SIMULATING' || appState === 'ANALYZING';
+            return <Dashboard historyEntry={activeHistoryEntry} onGoHome={handleGoHome} onRerun={handleRerunSimulation} isRerunning={isBusy} />;
         }
 
         return <p>History item not found.</p>;
@@ -300,9 +420,10 @@ const App: React.FC = () => {
         <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
             <HistorySidebar
                 history={history}
-                activeId={activeViewId}
-                onSelect={setActiveViewId}
+                activeId={activeView}
+                onSelect={setActiveView}
                 onNew={handleNewSimulation}
+                onGoHome={handleGoHome}
                 theme={theme}
                 onToggleTheme={handleToggleTheme}
             />
@@ -312,6 +433,7 @@ const App: React.FC = () => {
                         <strong>Error:</strong> {error}
                     </div>
                 )}
+                {isProgressModalVisible && <ProgressModal progress={progress} message={progressMessage} />}
                 {renderMainContent()}
             </main>
         </div>

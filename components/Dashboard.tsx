@@ -1,16 +1,18 @@
-import React, { useState, useMemo } from 'react';
-import { SessionResult, AnalysisResult, AnalysisIssue } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { HistoryEntry, AnalysisIssue, SimulationVersion } from '../types';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import XCircleIcon from './icons/XCircleIcon';
 import LightbulbIcon from './icons/LightbulbIcon';
 import UserIcon from './icons/UserIcon';
 import ClipboardIcon from './icons/ClipboardIcon';
+import ArrowLeftIcon from './icons/ArrowLeftIcon';
+import CircularArrowIcon from './icons/CircularArrowIcon';
 
 interface DashboardProps {
-  sessionResults: SessionResult[];
-  analysis: AnalysisResult | null;
-  onNewSimulation: () => void;
-  fullTask: string;
+  historyEntry: HistoryEntry;
+  onGoHome: () => void;
+  onRerun: (id: string) => void;
+  isRerunning: boolean;
 }
 
 const emotionConfig = {
@@ -65,28 +67,74 @@ const AIPromptCard: React.FC<{ issue: AnalysisIssue }> = ({ issue }) => {
     );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ sessionResults, analysis, onNewSimulation, fullTask }) => {
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(sessionResults[0]?.persona.id || null);
+const Dashboard: React.FC<DashboardProps> = ({ historyEntry, onGoHome, onRerun, isRerunning }) => {
+  const [activeVersionIndex, setActiveVersionIndex] = useState(historyEntry.versions.length - 1);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(historyEntry.versions[activeVersionIndex]?.sessionResults[0]?.persona.id || null);
+  
+  const activeVersion = historyEntry.versions[activeVersionIndex];
+  
+  // Effect to reset selected persona when version changes
+  useEffect(() => {
+    setActiveVersionIndex(historyEntry.versions.length - 1);
+  }, [historyEntry]);
+
+  useEffect(() => {
+    setSelectedPersonaId(historyEntry.versions[activeVersionIndex]?.sessionResults[0]?.persona.id || null);
+  }, [activeVersionIndex, historyEntry.versions]);
 
   const selectedSession = useMemo(() => {
-    return sessionResults.find(r => r.persona.id === selectedPersonaId);
-  }, [selectedPersonaId, sessionResults]);
+    if (!activeVersion) return null;
+    return activeVersion.sessionResults.find(r => r.persona.id === selectedPersonaId);
+  }, [selectedPersonaId, activeVersion]);
 
-  if (!analysis) {
-    return <div>Loading analysis...</div>;
+  if (!activeVersion || !activeVersion.analysis) {
+    return <div className="text-center p-8">Loading analysis... The AI is hard at work!</div>;
   }
+  
+  const { analysis, sessionResults } = activeVersion;
 
   return (
     <div className="w-full max-w-7xl mx-auto p-4 md:p-0 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-        <h1 className="font-serif text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100">Simulation Report</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <div className="flex items-center gap-4">
+            <button
+                onClick={onGoHome}
+                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-full transition-colors duration-200"
+                aria-label="Back to Home"
+            >
+                <ArrowLeftIcon className="w-6 h-6" />
+            </button>
+            <h1 className="font-serif text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100">Simulation Report</h1>
+        </div>
         <button
-          onClick={onNewSimulation}
-          className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 font-semibold py-2 px-5 rounded-xl transition-colors duration-200"
+            onClick={() => onRerun(historyEntry.id)}
+            disabled={isRerunning}
+            className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-slate-400 dark:disabled:bg-slate-600 transition-colors"
         >
-          Run New Simulation
+            <CircularArrowIcon className={`w-5 h-5 ${isRerunning ? 'animate-spin' : ''}`} />
+            {isRerunning ? 'Rerunning...' : 'Rerun Simulation'}
         </button>
       </div>
+
+      {historyEntry.versions.length > 1 && (
+        <div className="mb-6 border-b border-slate-200 dark:border-slate-700">
+            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+                {historyEntry.versions.map((version, index) => (
+                    <button
+                        key={version.version}
+                        onClick={() => setActiveVersionIndex(index)}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeVersionIndex === index
+                                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-slate-600'
+                        }`}
+                    >
+                        Version {version.version}
+                    </button>
+                ))}
+            </nav>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
         {/* Left Column */}
@@ -99,7 +147,13 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionResults, analysis, onNewSi
             <section className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-6 shadow-soft animate-slide-up" style={{ animationDelay: '0.1s' }}>
                 <h2 className="font-serif text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400">Identified UX Issues</h2>
                 <div className="space-y-4">
-                    {analysis.issues.map((issue, index) => <AIPromptCard key={index} issue={issue} />)}
+                    {analysis.issues.length > 0 ? (
+                        analysis.issues.map((issue, index) => <AIPromptCard key={index} issue={issue} />)
+                    ) : (
+                        <div className="text-center py-8 px-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
+                            <p className="text-slate-500 dark:text-slate-400">No UX issues were identified in this simulation.</p>
+                        </div>
+                    )}
                 </div>
             </section>
         </div>
@@ -138,7 +192,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionResults, analysis, onNewSi
                     <h2 className="font-serif text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400">Session Replay: {selectedSession.persona.name}</h2>
                     <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/80">
                         <p className="flex items-center text-lg font-bold mb-2 text-slate-900 dark:text-slate-100"><UserIcon className="w-5 h-5 mr-2" /> {selectedSession.persona.name} ({selectedSession.persona.skillLevel})</p>
-                        <div className="text-sm text-slate-700 dark:text-slate-300 mb-2"><strong>Task:</strong> <pre className="whitespace-pre-wrap font-sans">{fullTask}</pre></div>
+                        <div className="text-sm text-slate-700 dark:text-slate-300 mb-2"><strong>Task:</strong> <pre className="whitespace-pre-wrap font-sans">{historyEntry.fullTask}</pre></div>
                         <p className="text-sm text-slate-500 dark:text-slate-400 italic">"{selectedSession.persona.description}"</p>
                     </div>
                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 -mr-2">

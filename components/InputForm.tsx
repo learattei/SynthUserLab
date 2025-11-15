@@ -342,7 +342,7 @@ const InputForm: React.FC<InputFormProps> = ({
                     <button
                         onClick={onStartSimulation}
                         disabled={selectedPersonaIds.size === 0 || isBusy}
-                        className="px-10 py-4 text-xl font-bold text-white bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl hover:from-blue-600 hover:to-blue-700 disabled:from-slate-400 disabled:to-slate-400 disabled:bg-none disabled:cursor-not-allowed transition-all transform hover:scale-105 duration-300 ease-in-out shadow-lg disabled:shadow-none"
+                        className="px-10 py-4 text-xl font-bold text-white bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-75 disabled:cursor-not-allowed transition-all transform hover:scale-105 disabled:scale-100 duration-300 ease-in-out shadow-lg disabled:shadow-none"
                     >
                         {isSimulating ? 'Running Simulation...' : `Start Simulation with ${selectedPersonaIds.size} Persona(s)`}
                     </button>
