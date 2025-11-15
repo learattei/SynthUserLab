@@ -35,9 +35,20 @@ export interface FrictionSummary {
   suggestion: string;
 }
 
+export interface BusinessAnalysisResult {
+    conversionRate: number;
+    topFrictionPoints: {
+        point: string;
+        impact: 'High' | 'Medium' | 'Low';
+    }[];
+}
+
+export type TestMode = 'UX_TESTING' | 'BUSINESS_VALIDATION';
+
 export type AppState =
   | 'CONFIG'
   | 'GENERATING_PERSONAS'
   | 'SIMULATING'
   | 'ANALYZING'
-  | 'SHOWING_RESULTS';
+  | 'SHOWING_RESULTS'
+  | 'SHOWING_BUSINESS_REPORT';

@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
-import { AppState, Persona, SessionResult, AnalysisResult, FrictionSummary } from './types';
-import { runSimulation, analyzeResults, summarizeFrictionPoints, generatePersonas, generatePersonasFromIdea } from './services/geminiService';
+import React, { useState, useCallback, useMemo } from 'react';
+import { AppState, Persona, SessionResult, AnalysisResult, FrictionSummary, TestMode, BusinessAnalysisResult } from './types';
+import { runSimulation, analyzeResults, summarizeFrictionPoints, generatePersonas, generatePersonasFromIdea, analyzeBusinessValidation } from './services/geminiService';
 import InputForm from './components/InputForm';
 import Dashboard from './components/Dashboard';
-import Loader from './components/Loader';
+import BusinessReport from './components/BusinessReport';
 import AgentLog from './components/AgentLog';
 import AISummary from './components/AISummary';
 
@@ -26,11 +26,14 @@ const hardcodedPersonas: Persona[] = [
 
 const App: React.FC = () => {
     const [appState, setAppState] = useState<AppState>('CONFIG');
+    const [testMode, setTestMode] = useState<TestMode>('UX_TESTING');
     const [userTask, setUserTask] = useState<string>('');
+    const [businessTask, setBusinessTask] = useState<string>('');
     const [prototypeUrl, setPrototypeUrl] = useState<string>('');
     const [selectedPersonaIds, setSelectedPersonaIds] = useState<Set<string>>(new Set());
     const [sessionResults, setSessionResults] = useState<SessionResult[]>([]);
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+    const [businessAnalysis, setBusinessAnalysis] = useState<BusinessAnalysisResult | null>(null);
     const [frictionSummary, setFrictionSummary] = useState<FrictionSummary | null>(null);
     const [isSummaryLoading, setIsSummaryLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,6 +48,7 @@ const App: React.FC = () => {
     const [businessIdea, setBusinessIdea] = useState<string>('');
     const [personaCount, setPersonaCount] = useState<number>(5);
 
+    const currentTask = useMemo(() => testMode === 'UX_TESTING' ? userTask : businessTask, [testMode, userTask, businessTask]);
 
     const togglePersonaSelection = useCallback((id: string) => {
         setSelectedPersonaIds(prev => {
@@ -92,22 +96,23 @@ const App: React.FC = () => {
     };
 
     const handleStartSimulation = useCallback(async () => {
-        if (selectedPersonaIds.size === 0 || !userTask.trim() || !prototypeUrl.trim()) return;
+        if (selectedPersonaIds.size === 0 || !currentTask.trim() || !prototypeUrl.trim()) return;
 
         setAppState('SIMULATING');
         setError(null);
         setSessionResults([]);
         setFrictionSummary(null);
+        setAnalysis(null);
+        setBusinessAnalysis(null);
         
         const allPersonas = [...hardcodedPersonas, ...generatedPersonas];
         const selectedPersonas = allPersonas.filter(p => selectedPersonaIds.has(p.id));
         const currentResults: SessionResult[] = [];
 
         try {
-            // Run simulations sequentially to show progress in the log
             for (const persona of selectedPersonas) {
                 const result = await runSimulation(
-                    userTask,
+                    currentTask,
                     prototypeUrl,
                     persona
                 );
@@ -117,31 +122,35 @@ const App: React.FC = () => {
             }
             
             setAppState('ANALYZING');
-            setIsSummaryLoading(true);
 
-            // Generate summary and full analysis in parallel
-            const summaryPromise = summarizeFrictionPoints(currentResults).then(summary => {
-                setFrictionSummary(summary);
-            }).finally(() => setIsSummaryLoading(false));
+            if (testMode === 'UX_TESTING') {
+                setIsSummaryLoading(true);
+                const summaryPromise = summarizeFrictionPoints(currentResults).then(setFrictionSummary).finally(() => setIsSummaryLoading(false));
+                const analysisPromise = analyzeResults(currentResults).then(setAnalysis);
+                await Promise.all([summaryPromise, analysisPromise]);
+                setAppState('SHOWING_RESULTS');
+            } else { // BUSINESS_VALIDATION
+                const businessReport = await analyzeBusinessValidation(currentResults);
+                setBusinessAnalysis(businessReport);
+                setAppState('SHOWING_BUSINESS_REPORT');
+            }
 
-            const analysisPromise = analyzeResults(currentResults).then(setAnalysis);
-
-            await Promise.all([summaryPromise, analysisPromise]);
-
-            setAppState('SHOWING_RESULTS');
         } catch (e: any) {
             setError(e.message || 'An unknown error occurred during simulation.');
             setAppState('CONFIG');
         }
-    }, [selectedPersonaIds, userTask, prototypeUrl, generatedPersonas]);
+    }, [selectedPersonaIds, currentTask, prototypeUrl, generatedPersonas, testMode]);
 
     const handleReset = () => {
         setAppState('CONFIG');
+        setTestMode('UX_TESTING');
         setUserTask('');
+        setBusinessTask('');
         setPrototypeUrl('');
         setSelectedPersonaIds(new Set());
         setSessionResults([]);
         setAnalysis(null);
+        setBusinessAnalysis(null);
         setFrictionSummary(null);
         setError(null);
         setGeneratedPersonas([]);
@@ -155,7 +164,9 @@ const App: React.FC = () => {
     const renderContent = () => {
         switch (appState) {
             case 'SHOWING_RESULTS':
-                return <Dashboard sessionResults={sessionResults} analysis={analysis} onReset={handleReset} userTask={userTask} />;
+                return <Dashboard sessionResults={sessionResults} analysis={analysis} onReset={handleReset} userTask={currentTask} />;
+            case 'SHOWING_BUSINESS_REPORT':
+                return <BusinessReport result={businessAnalysis} onReset={handleReset} task={currentTask} />;
             case 'CONFIG':
             case 'GENERATING_PERSONAS':
             case 'SIMULATING':
@@ -166,8 +177,12 @@ const App: React.FC = () => {
                 return (
                     <>
                         <InputForm
+                            testMode={testMode}
+                            setTestMode={setTestMode}
                             userTask={userTask}
                             setUserTask={setUserTask}
+                            businessTask={businessTask}
+                            setBusinessTask={setBusinessTask}
                             prototypeUrl={prototypeUrl}
                             setPrototypeUrl={setPrototypeUrl}
                             personas={[...hardcodedPersonas, ...generatedPersonas]}
@@ -189,11 +204,14 @@ const App: React.FC = () => {
                             setPersonaCount={setPersonaCount}
                             onGeneratePersonasFromIdea={handleGeneratePersonasFromIdea}
                         />
-                        {isSimulating && (
+                        {isSimulating && testMode === 'UX_TESTING' && (
                             <>
                                 <AgentLog results={sessionResults} />
                                 <AISummary summary={frictionSummary} isLoading={isSummaryLoading} />
                             </>
+                        )}
+                        {isSimulating && testMode === 'BUSINESS_VALIDATION' && (
+                             <AgentLog results={sessionResults} />
                         )}
                    </>
                 );

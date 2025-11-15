@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { Persona, SessionResult, AnalysisResult, FrictionSummary } from '../types';
+import { Persona, SessionResult, AnalysisResult, FrictionSummary, BusinessAnalysisResult } from '../types';
 
 if (!process.env.API_KEY) {
     console.error("API_KEY environment variable not set.");
@@ -73,7 +74,7 @@ export const generatePersonasFromIdea = async (
         
         Business Idea: "${idea}"
 
-        For each persona, provide a unique name, a rich backstory/description, a specific skill level ('Novice', 'Intermediate', or 'Expert'), and a primary goal related to the business idea.
+        For each persona, provide a unique name, a rich backstory/description, a specific skill level ('Novice', 'Intermediate', 'Expert'), and a primary goal related to the business idea.
         Provide the output as a JSON array of objects.`,
             config: {
                 responseMimeType: "application/json",
@@ -109,7 +110,7 @@ Your Task: "${userTask}"
 Website URL: "${url}"
 ---
 
-Follow these instructions:
+Follow these instructions meticulously:
 1.  Assume the following Python Selenium setup code is already present and you have a 'driver' variable available:
     \`\`\`python
     from selenium import webdriver
@@ -126,8 +127,14 @@ Follow these instructions:
 3.  For each step, provide your internal thought process, your current emotion ('Neutral', 'Confused', 'Frustrated', 'Satisfied', 'Curious'), and the specific Python Selenium code to execute that action.
 4.  Think carefully about how your persona would behave. A 'Novice' might pause more (time.sleep) or try less optimal selectors. An 'Expert' would be efficient.
 5.  Use robust selectors (like IDs, names, or specific CSS selectors) where possible. Add comments to your code explaining your choices.
-6.  Finally, conclude if you successfully completed your task.
-7.  Estimate the total time taken in seconds for your persona to complete the task and provide it as \`timeTaken\`.
+
+*** Critical Error Handling ***
+6.  If you determine that an action would fail (e.g., trying to find an element that is clearly not present), or if an action fails three times in a row, you are 'stuck'.
+7.  If you get stuck, you MUST immediately stop the simulation.
+8.  The final step in your log MUST describe the failure. The 'thought' for this step MUST start with "UX Friction: Critical:". Describe the element you couldn't find and suggest a specific fix.
+    -   Example thought: "UX Friction: Critical: The 'Add to Cart' button was not visible after selecting a product color. Suggestion: Ensure the 'Add to Cart' button is always visible and enabled once all product options are selected."
+9.  If you get stuck, you MUST set 'completed' to false. Otherwise, if you complete the task, set 'completed' to true.
+10. Estimate the total time taken in seconds for your persona to complete the task and provide it as \`timeTaken\`.
 
 Provide the output as a JSON object.`;
 
@@ -172,7 +179,7 @@ export const analyzeResults = async (sessionResults: SessionResult[]): Promise<A
             model: "gemini-2.5-pro",
             contents: `You are a senior UX researcher providing a report to a design and product team. Your task is to analyze user testing session logs and produce actionable feedback.
 
-Analyze the following session logs, which include persona thoughts, emotions, and the Selenium code they generated to navigate a website. Look for patterns of confusion, hesitation (e.g., long pauses indicated by 'time.sleep'), or inefficient navigation (e.g., complex code for a simple action).
+Analyze the following session logs, which include persona thoughts, emotions, and the Selenium code they generated to navigate a website. Look for patterns of confusion, hesitation (e.g., long pauses indicated by 'time.sleep'), or inefficient navigation (e.g., complex code for a simple action). Pay special attention to any steps marked with "UX Friction: Critical".
 
 Your analysis must focus on problems within the UI/UX design, NOT on the user's perceived skill or emotions. Frame every issue as a design flaw.
 
@@ -184,7 +191,7 @@ Follow these steps:
 1.  Provide a high-level summary of the overall user experience and key themes discovered.
 2.  Provide a list of specific, actionable usability issues. For each issue:
     -   **issue**: Clearly describe a specific problem with the user interface design or information architecture.
-    -   **severity**: Rate its impact on the user experience as 'Low', 'Medium', or 'High'.
+    -   **severity**: Rate its impact on the user experience as 'Low', 'Medium', or 'High'. Critical friction points should be rated 'High'.
     -   **recommendation**: Provide a concrete, actionable suggestion for the design or development team to resolve the issue. Example: "Increase the font size of body text to 16px for better readability."
 
 Session Logs: ${JSON.stringify(sessionResults, null, 2)}`,
@@ -259,5 +266,65 @@ export const summarizeFrictionPoints = async (sessionResults: SessionResult[]): 
     } catch (error) {
         console.error("Error summarizing friction points:", error);
         throw new Error("Failed to generate friction summary.");
+    }
+};
+
+export const analyzeBusinessValidation = async (sessionResults: SessionResult[]): Promise<BusinessAnalysisResult> => {
+    try {
+        const completedCount = sessionResults.filter(r => r.completed).length;
+        const conversionRate = sessionResults.length > 0 ? Math.round((completedCount / sessionResults.length) * 100) : 0;
+
+        const failedSessions = sessionResults.filter(r => !r.completed);
+        if (failedSessions.length === 0) {
+            return {
+                conversionRate,
+                topFrictionPoints: [{ point: "All users successfully completed the task. No major friction points identified in this funnel.", impact: 'Low' }]
+            };
+        }
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-pro",
+            contents: `You are a product manager analyzing user simulation logs to identify business-critical issues.
+            
+            The goal was to test a key conversion funnel. The simulation had a ${conversionRate}% success rate.
+            
+            Analyze the following logs from the FAILED sessions. Identify the top 3 most critical friction points that caused users to drop off or fail the task. For each point, describe the issue and rate its impact on conversion.
+            
+            Focus on actionable business insights. For example, instead of "User couldn't find a button", say "Unclear navigation in the checkout flow is causing drop-off."
+
+            Failed Session Logs: ${JSON.stringify(failedSessions, null, 2)}
+            
+            Provide the output as a JSON object.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        topFrictionPoints: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    point: { type: Type.STRING, description: "A concise description of the friction point." },
+                                    impact: { type: Type.STRING, enum: ['High', 'Medium', 'Low'], description: "The estimated impact on conversion." }
+                                },
+                                required: ["point", "impact"],
+                            },
+                        },
+                    },
+                    required: ["topFrictionPoints"],
+                },
+            },
+        });
+        
+        const analysisJson = JSON.parse(response.text);
+        return {
+            conversionRate,
+            topFrictionPoints: analysisJson.topFrictionPoints
+        };
+
+    } catch (error) {
+        console.error("Error analyzing business validation:", error);
+        throw new Error("Failed to generate business validation report.");
     }
 };

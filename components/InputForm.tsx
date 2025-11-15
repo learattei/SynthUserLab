@@ -1,11 +1,14 @@
 import React from 'react';
-import { Persona } from '../types';
+import { Persona, TestMode } from '../types';
 import UserIcon from './icons/UserIcon';
-import CheckCircleIcon from './icons/CheckCircleIcon';
 
 interface InputFormProps {
+    testMode: TestMode;
+    setTestMode: (mode: TestMode) => void;
     userTask: string;
     setUserTask: (task: string) => void;
+    businessTask: string;
+    setBusinessTask: (task: string) => void;
     prototypeUrl: string;
     setPrototypeUrl: (url: string) => void;
     personas: Persona[];
@@ -30,9 +33,15 @@ interface InputFormProps {
     onGeneratePersonasFromIdea: () => void;
 }
 
+const businessTasks = ['Simulate Purchase', 'Test Subscription Funnel'];
+
 const InputForm: React.FC<InputFormProps> = ({
+    testMode,
+    setTestMode,
     userTask,
     setUserTask,
+    businessTask,
+    setBusinessTask,
     prototypeUrl,
     setPrototypeUrl,
     personas,
@@ -61,41 +70,82 @@ const InputForm: React.FC<InputFormProps> = ({
         'Expert': 'bg-purple-500',
     };
 
-    const canStart = userTask.trim().length > 0 && prototypeUrl.trim().length > 0;
+    const isTaskDefined = testMode === 'UX_TESTING' ? userTask.trim().length > 0 : businessTask.trim().length > 0;
+    const canStart = isTaskDefined && prototypeUrl.trim().length > 0;
     const isBusy = isSimulating || isGeneratingPersonas;
+
+    const ModeButton: React.FC<{ mode: TestMode, label: string }> = ({ mode, label }) => (
+        <button
+            onClick={() => setTestMode(mode)}
+            className={`w-full text-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-sky-500 ${
+                testMode === mode
+                ? 'bg-sky-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+        >
+            {label}
+        </button>
+    );
 
     return (
         <div className="w-full max-w-4xl mx-auto p-8 bg-slate-800 rounded-xl shadow-2xl animate-fade-in space-y-8">
-            <div>
-                <h2 className="text-xl font-semibold mb-2 text-sky-300">
-                    1. Provide a URL & define the task
-                </h2>
-                <p className="text-sm text-slate-400 mb-4">Enter the URL of your live prototype and provide a clear task for the AI persona to complete.</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    <div>
-                        <label htmlFor="prototype-url" className="block text-sm font-medium text-slate-300 mb-2">Prototype URL</label>
-                        <input
-                            type="url"
-                            id="prototype-url"
-                            className="w-full p-3 bg-slate-900 border-2 border-slate-700 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all text-slate-200 placeholder-slate-500"
-                            placeholder="https://example.com"
-                            value={prototypeUrl}
-                            onChange={(e) => setPrototypeUrl(e.target.value)}
-                            disabled={isBusy}
-                        />
+            <div className="space-y-6">
+                <div>
+                     <h2 className="text-xl font-semibold mb-2 text-sky-300">
+                        1. Select Test Mode
+                    </h2>
+                    <div className="grid grid-cols-2 gap-4 p-1 bg-slate-900/50 rounded-lg">
+                       <ModeButton mode="UX_TESTING" label="UX Testing" />
+                       <ModeButton mode="BUSINESS_VALIDATION" label="Business Validation" />
                     </div>
-                    <div>
-                        <label htmlFor="user-task" className="block text-sm font-medium text-slate-300 mb-2">User Task</label>
-                        <textarea
-                            id="user-task"
-                            rows={3}
-                            className="w-full p-3 bg-slate-900 border-2 border-slate-700 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all text-slate-200 placeholder-slate-500"
-                            placeholder="e.g., 'Find the search bar and search for a product'"
-                            value={userTask}
-                            onChange={(e) => setUserTask(e.target.value)}
-                            disabled={isBusy}
-                        />
+                </div>
+
+                <div>
+                    <h2 className="text-xl font-semibold mb-2 text-sky-300">
+                        2. Provide URL & Define Task
+                    </h2>
+                    <p className="text-sm text-slate-400 mb-4">Enter the URL of your live prototype and provide a clear task for the AI persona to complete.</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        <div>
+                            <label htmlFor="prototype-url" className="block text-sm font-medium text-slate-300 mb-2">Prototype URL</label>
+                            <input
+                                type="url"
+                                id="prototype-url"
+                                className="w-full p-3 bg-slate-900 border-2 border-slate-700 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all text-slate-200 placeholder-slate-500"
+                                placeholder="https://example.com"
+                                value={prototypeUrl}
+                                onChange={(e) => setPrototypeUrl(e.target.value)}
+                                disabled={isBusy}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="user-task" className="block text-sm font-medium text-slate-300 mb-2">
+                                {testMode === 'UX_TESTING' ? 'User Task' : 'Business Goal'}
+                            </label>
+                            {testMode === 'UX_TESTING' ? (
+                                <textarea
+                                    id="user-task"
+                                    rows={3}
+                                    className="w-full p-3 bg-slate-900 border-2 border-slate-700 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all text-slate-200 placeholder-slate-500"
+                                    placeholder="e.g., 'Find the search bar and search for a product'"
+                                    value={userTask}
+                                    onChange={(e) => setUserTask(e.target.value)}
+                                    disabled={isBusy}
+                                />
+                            ) : (
+                                <select 
+                                    id="business-task"
+                                    className="w-full p-3 bg-slate-900 border-2 border-slate-700 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all text-slate-200"
+                                    value={businessTask}
+                                    onChange={e => setBusinessTask(e.target.value)}
+                                    disabled={isBusy}
+                                >
+                                    <option value="">Select a funnel...</option>
+                                    {businessTasks.map(task => <option key={task} value={task}>{task}</option>)}
+                                </select>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -104,7 +154,7 @@ const InputForm: React.FC<InputFormProps> = ({
                 <div className="animate-slide-up space-y-8">
                     <div>
                         <h2 className="text-xl font-semibold mb-4 text-sky-300">
-                            2. Select Personas for Testing
+                           3. Select Personas for Testing
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {personas.map(persona => (
