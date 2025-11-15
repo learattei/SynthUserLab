@@ -37,6 +37,40 @@ interface InputFormProps {
 
 const businessTasks = ['Simulate Purchase', 'Test Subscription Funnel'];
 
+// --- HELPER COMPONENTS (Moved outside the main component to prevent re-rendering on every state change) ---
+
+const FormCard: React.FC<{title:string, children: React.ReactNode, step: number}> = ({title, children, step}) => (
+  <div className="bg-white border border-slate-200/80 rounded-xl shadow-sm p-6">
+    <h2 className="text-xl font-bold mb-4 text-violet-600">
+        <span className="text-slate-400 font-mono mr-2">{step}.</span>{title}
+    </h2>
+    {children}
+  </div>
+);
+
+interface ModeButtonProps {
+    mode: TestMode;
+    label: string;
+    currentMode: TestMode;
+    onClick: (mode: TestMode) => void;
+}
+
+const ModeButton: React.FC<ModeButtonProps> = ({ mode, label, currentMode, onClick }) => (
+    <button
+        onClick={() => onClick(mode)}
+        className={`w-full text-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-100 focus:ring-violet-500 ${
+            currentMode === mode
+            ? 'bg-violet-600 text-white shadow-md'
+            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+        }`}
+    >
+        {label}
+    </button>
+);
+
+
+// --- MAIN COMPONENT ---
+
 const InputForm: React.FC<InputFormProps> = ({
     testMode,
     setTestMode,
@@ -76,28 +110,6 @@ const InputForm: React.FC<InputFormProps> = ({
     const canStart = isTaskDefined && prototypeUrl.trim().length > 0;
     const isBusy = isSimulating || isGeneratingPersonas;
 
-    const ModeButton: React.FC<{ mode: TestMode, label: string }> = ({ mode, label }) => (
-        <button
-            onClick={() => setTestMode(mode)}
-            className={`w-full text-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-100 focus:ring-violet-500 ${
-                testMode === mode
-                ? 'bg-violet-600 text-white shadow-md'
-                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-            }`}
-        >
-            {label}
-        </button>
-    );
-    
-    const FormCard: React.FC<{title:string, children: React.ReactNode, step: number}> = ({title, children, step}) => (
-      <div className="bg-white border border-slate-200/80 rounded-xl shadow-sm p-6">
-        <h2 className="text-xl font-bold mb-4 text-violet-600">
-            <span className="text-slate-400 font-mono mr-2">{step}.</span>{title}
-        </h2>
-        {children}
-      </div>
-    );
-
     return (
         <div className="w-full animate-fade-in space-y-8">
             <div className="space-y-6">
@@ -106,8 +118,8 @@ const InputForm: React.FC<InputFormProps> = ({
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Test Mode</label>
                             <div className="grid grid-cols-2 gap-4 p-1 bg-slate-100 rounded-lg">
-                               <ModeButton mode="UX_TESTING" label="UX Testing" />
-                               <ModeButton mode="BUSINESS_VALIDATION" label="Business Validation" />
+                               <ModeButton mode="UX_TESTING" label="UX Testing" currentMode={testMode} onClick={setTestMode} />
+                               <ModeButton mode="BUSINESS_VALIDATION" label="Business Validation" currentMode={testMode} onClick={setTestMode} />
                             </div>
                         </div>
 
