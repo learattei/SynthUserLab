@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Persona, SessionResult, AnalysisResult, FrictionSummary } from '../types';
 
@@ -14,7 +13,7 @@ const personaSchema = {
         type: Type.OBJECT,
         properties: {
             name: { type: Type.STRING, description: "A unique, descriptive name for the persona, e.g., 'Tech-Savvy Tina'." },
-            description: { type: Type.STRING, description: "A detailed backstory for the persona, including their motivations and habits." },
+            description: { type: Type.STRING, description: "A concise, single-sentence backstory for the persona (max 150 characters)." },
             skillLevel: { type: Type.STRING, enum: ['Novice', 'Intermediate', 'Expert'] },
             goals: {
                 type: Type.ARRAY,
@@ -43,7 +42,7 @@ export const generatePersonas = async (
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: `Based on the following user profile, generate 5 to 10 detailed user personas for usability testing. Each persona must have a unique name, a rich backstory/description, a specific skill level ('Novice', 'Intermediate', or 'Expert'), and a primary goal.
+            contents: `Based on the following user profile, generate 5 to 10 detailed user personas for usability testing. Each persona must have a unique name, a concise, single-sentence backstory/description (max 150 characters), a specific skill level ('Novice', 'Intermediate', or 'Expert'), and a primary goal.
         
             User Profile:
             - Demographics: "${demographics}"
@@ -74,7 +73,7 @@ export const generatePersonasFromIdea = async (
         
         Business Idea: "${idea}"
 
-        For each persona, provide a unique name, a rich backstory/description, a specific skill level ('Novice', 'Intermediate', 'Expert'), and a primary goal related to the business idea.
+        For each persona, provide a unique name, a concise, single-sentence backstory/description (max 150 characters), a specific skill level ('Novice', 'Intermediate', 'Expert'), and a primary goal related to the business idea.
         Provide the output as a JSON array of objects.`,
             config: {
                 responseMimeType: "application/json",
@@ -239,6 +238,39 @@ Provide the output as a JSON object.`;
     }
 };
 
+const singleSiteAnalysisSchema = {
+    type: Type.OBJECT,
+    properties: {
+        summary: { type: Type.STRING },
+        issues: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    issue: { type: Type.STRING },
+                    severity: { type: Type.STRING, enum: ['Low', 'Medium', 'High'] },
+                    recommendation: { type: Type.STRING },
+                },
+                required: ["issue", "severity", "recommendation"],
+            },
+        },
+        personaFeedback: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    personaName: { type: Type.STRING },
+                    feedback: { type: Type.STRING },
+                },
+                required: ["personaName", "feedback"]
+            },
+            description: "A one-sentence feedback summary from each persona's perspective."
+        }
+    },
+    required: ["summary", "issues", "personaFeedback"],
+};
+
+
 export const analyzeResults = async (sessionResults: SessionResult[]): Promise<AnalysisResult> => {
     try {
         const response = await ai.models.generateContent({
@@ -259,29 +291,12 @@ Follow these steps:
     -   **issue**: Clearly describe a specific problem with the user interface design or information architecture.
     -   **severity**: Rate its impact on the user experience as 'Low', 'Medium', or 'High'. Critical friction points should be rated 'High'.
     -   **recommendation**: Provide a concrete, actionable suggestion for the design or development team to resolve the issue. Example: "Increase the font size of body text to 16px for better readability."
+3.  For each persona in the session, provide a single, summary sentence of their experience from their perspective. Frame it as if the persona is speaking. Example: 'As a novice user, I felt lost trying to find the settings menu.'
 
 Session Logs: ${JSON.stringify(sessionResults, null, 2)}`,
             config: {
                 responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        summary: { type: Type.STRING },
-                        issues: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    issue: { type: Type.STRING },
-                                    severity: { type: Type.STRING, enum: ['Low', 'Medium', 'High'] },
-                                    recommendation: { type: Type.STRING },
-                                },
-                                required: ["issue", "severity", "recommendation"],
-                            },
-                        },
-                    },
-                    required: ["summary", "issues"],
-                },
+                responseSchema: singleSiteAnalysisSchema,
             },
         });
         const analysisJson = JSON.parse(response.text);
@@ -291,6 +306,60 @@ Session Logs: ${JSON.stringify(sessionResults, null, 2)}`,
         throw new Error("Failed to analyze results.");
     }
 };
+
+
+export const analyzeCompetitorResults = async (yourSiteResults: SessionResult[], competitorSiteResults: SessionResult[]): Promise<AnalysisResult> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-pro",
+            contents: `You are a senior UX researcher comparing two websites. Your task is to analyze two sets of user testing session logs and produce a head-to-head comparative report.
+
+- The first set of logs is for "Your Site".
+- The second set of logs is for "Competitor Site".
+
+Your analysis must:
+1.  **Declare a winner:** In a "competitorAnalysis" object, state which site provided the better user experience ('Your Site', 'Competitor Site', or 'Tie') and provide a clear, concise reason for your decision.
+2.  **Analyze "Your Site":** Provide a standard UX analysis for this site (as "yourSiteAnalysis") including a high-level summary, a list of specific issues (with severity and recommendations), and one-sentence feedback from each persona.
+3.  **Analyze "Competitor Site":** Provide the same standard UX analysis for the competitor's site (as "competitorSiteAnalysis").
+
+Frame all issues as design flaws, not user errors.
+
+Your Site Logs: ${JSON.stringify(yourSiteResults, null, 2)}
+Competitor Site Logs: ${JSON.stringify(competitorSiteResults, null, 2)}
+
+Provide the entire output as a single JSON object.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        competitorAnalysis: {
+                            type: Type.OBJECT,
+                            properties: {
+                                winner: { type: Type.STRING, enum: ['Your Site', 'Competitor Site', 'Tie'] },
+                                reason: { type: Type.STRING },
+                            },
+                            required: ['winner', 'reason'],
+                        },
+                        // The original `analyzeResults` schema is nested for the main site
+                        summary: { type: Type.STRING },
+                        issues: singleSiteAnalysisSchema.properties.issues,
+                        personaFeedback: singleSiteAnalysisSchema.properties.personaFeedback,
+                        // The same schema is duplicated for the competitor site
+                        competitorSiteAnalysis: singleSiteAnalysisSchema,
+                    },
+                    required: ["summary", "issues", "personaFeedback", "competitorSiteAnalysis", "competitorAnalysis"],
+                },
+            },
+        });
+        const analysisJson = JSON.parse(response.text);
+        return analysisJson as AnalysisResult;
+    } catch (error) {
+        console.error("Error analyzing competitor results:", error);
+        throw new Error("Failed to analyze competitor results.");
+    }
+};
+
 
 export const summarizeFrictionPoints = async (sessionResults: SessionResult[]): Promise<FrictionSummary> => {
     try {

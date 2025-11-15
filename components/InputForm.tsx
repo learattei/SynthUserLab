@@ -30,7 +30,7 @@ interface InputFormProps {
     personaGenSkillLevel: 'Novice' | 'Intermediate' | 'Expert';
     setPersonaGenSkillLevel: (value: 'Novice' | 'Intermediate' | 'Expert') => void;
     onGeneratePersonas: () => void;
-    isGeneratingPersonas: boolean;
+    generatingPersonaMethod: 'details' | 'idea' | null;
     // Persona Generation (Business Idea) Props
     businessIdea: string;
     setBusinessIdea: (value: string) => void;
@@ -42,6 +42,11 @@ interface InputFormProps {
     // Lazy Mode
     reviewPlan: boolean;
     setReviewPlan: (value: boolean) => void;
+    // Competitor Mode
+    isCompetitorMode: boolean;
+    setIsCompetitorMode: (value: boolean) => void;
+    competitorUrl: string;
+    setCompetitorUrl: (value: string) => void;
 }
 
 const FormCard: React.FC<{title:string, children: React.ReactNode, step: number}> = ({title, children, step}) => (
@@ -186,9 +191,10 @@ const JourneyBuilder: React.FC<{
 const InputForm: React.FC<InputFormProps> = ({
     testMode, setTestMode, userTask, setUserTask, journeySteps, setJourneySteps, prototypeUrl, setPrototypeUrl,
     personas, selectedPersonaIds, togglePersonaSelection, onStartSimulation, isSimulating,
-    personaGenGoals, setPersonaGenGoals, personaGenDemographics, setPersonaGenDemographics, personaGenSkillLevel, setPersonaGenSkillLevel, onGeneratePersonas, isGeneratingPersonas,
+    personaGenGoals, setPersonaGenGoals, personaGenDemographics, setPersonaGenDemographics, personaGenSkillLevel, setPersonaGenSkillLevel, onGeneratePersonas, generatingPersonaMethod,
     businessIdea, setBusinessIdea, personaCount, setPersonaCount, onGeneratePersonasFromIdea, onSuggestJourneySteps,
-    reviewPlan, setReviewPlan
+    reviewPlan, setReviewPlan,
+    isCompetitorMode, setIsCompetitorMode, competitorUrl, setCompetitorUrl
 }) => {
     
     const skillLevelConfig = {
@@ -201,8 +207,8 @@ const InputForm: React.FC<InputFormProps> = ({
         || (testMode === 'USER_JOURNEY' && journeySteps.length > 0)
         || (testMode === 'LAZY');
     
-    const canStart = isTaskDefined && prototypeUrl.trim().length > 0;
-    const isBusy = isSimulating || isGeneratingPersonas;
+    const canStart = isTaskDefined && prototypeUrl.trim().length > 0 && (!isCompetitorMode || competitorUrl.trim().length > 0);
+    const isBusy = isSimulating || !!generatingPersonaMethod;
 
     return (
         <div className="w-full animate-fade-in space-y-8">
@@ -218,7 +224,7 @@ const InputForm: React.FC<InputFormProps> = ({
                             </div>
                         </div>
                         <div>
-                            <label htmlFor="prototype-url" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Prototype URL</label>
+                            <label htmlFor="prototype-url" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Your Prototype URL</label>
                             <input
                                 type="url"
                                 id="prototype-url"
@@ -229,6 +235,36 @@ const InputForm: React.FC<InputFormProps> = ({
                                 disabled={isBusy}
                             />
                         </div>
+                         {testMode !== 'LAZY' && (
+                            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={isCompetitorMode}
+                                        onChange={(e) => setIsCompetitorMode(e.target.checked)}
+                                        className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        disabled={isBusy}
+                                    />
+                                    <span className="text-slate-700 dark:text-slate-300">
+                                        Compare to competitor
+                                    </span>
+                                </label>
+                                {isCompetitorMode && (
+                                    <div className="mt-4 pl-8 animate-fade-in">
+                                        <label htmlFor="competitor-url" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Competitor URL</label>
+                                        <input
+                                            type="url"
+                                            id="competitor-url"
+                                            className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="https://competitor-url.com"
+                                            value={competitorUrl}
+                                            onChange={(e) => setCompetitorUrl(e.target.value)}
+                                            disabled={isBusy}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="pt-6 border-t border-slate-200/80 dark:border-slate-700/80">
@@ -329,7 +365,7 @@ const InputForm: React.FC<InputFormProps> = ({
                                             </select>
                                             <button onClick={onGeneratePersonas} disabled={isBusy || !personaGenGoals || !personaGenDemographics}
                                                 className="w-full px-6 py-3 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors">
-                                                {isGeneratingPersonas ? 'Generating...' : 'Generate Personas'}
+                                                {generatingPersonaMethod === 'details' ? 'Generating...' : 'Generate Personas'}
                                             </button>
                                         </div>
                                     </div>
@@ -351,7 +387,7 @@ const InputForm: React.FC<InputFormProps> = ({
                                             disabled={isBusy} />
                                          <button onClick={onGeneratePersonasFromIdea} disabled={isBusy || !businessIdea || personaCount <= 0}
                                             className="w-full px-6 py-3 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors">
-                                            {isGeneratingPersonas ? 'Generating...' : 'Generate from Idea'}
+                                            {generatingPersonaMethod === 'idea' ? 'Generating...' : 'Generate from Idea'}
                                         </button>
                                     </div>
                                 </div>

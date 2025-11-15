@@ -1,8 +1,7 @@
-
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 // Fix: Add the missing `FrictionSummary` type to the import statement.
 import { AppState, Persona, SessionResult, AnalysisResult, TestMode, HistoryEntry, PersonaTypeTag, TestTypeTag, FrictionSummary, SimulationVersion } from './types';
-import { runSimulation, analyzeResults, summarizeFrictionPoints, generatePersonas, generatePersonasFromIdea, suggestJourneySteps, generateHistorySummary, generateLazyTestPlan } from './services/geminiService';
+import { runSimulation, analyzeResults, analyzeCompetitorResults, summarizeFrictionPoints, generatePersonas, generatePersonasFromIdea, suggestJourneySteps, generateHistorySummary, generateLazyTestPlan } from './services/geminiService';
 import InputForm from './components/InputForm';
 import Dashboard from './components/Dashboard';
 import HistorySidebar from './components/HistorySidebar';
@@ -55,6 +54,17 @@ const planGenerationMessages = [
     "Drinking virtual coffee to brainstorm harder."
 ];
 
+const personaGenerationMessages = [
+    "Conducting virtual interviews...",
+    "Inventing tragic backstories...",
+    "Rolling dice for personality traits...",
+    "Searching stock photos for 'thoughtful person'...",
+    "Ensuring personas have quirky, relatable hobbies.",
+    "Analyzing zodiac signs for compatibility...",
+    "Fabricating detailed user demographics...",
+    "Crafting goals that are just challenging enough."
+];
+
 const App: React.FC = () => {
     const [theme, setTheme] = useState<'light' | 'dark'>('light');
     const [appState, setAppState] = useState<AppState | 'IDLE'>('IDLE');
@@ -75,6 +85,10 @@ const App: React.FC = () => {
     const [personaCount, setPersonaCount] = useState<number>(5);
     const [reviewPlan, setReviewPlan] = useState<boolean>(true);
     const [generatedPlan, setGeneratedPlan] = useState<string[]>([]);
+    const [generatingPersonaMethod, setGeneratingPersonaMethod] = useState<'details' | 'idea' | null>(null);
+    const [isCompetitorMode, setIsCompetitorMode] = useState<boolean>(false);
+    const [competitorUrl, setCompetitorUrl] = useState<string>('');
+
     
     // Progress Modal State
     const [isProgressModalVisible, setIsProgressModalVisible] = useState(false);
@@ -138,54 +152,6 @@ const App: React.FC = () => {
         });
     }, []);
 
-    const handleGeneratePersonas = async () => {
-        if (!personaGenGoals.trim() || !personaGenDemographics.trim()) return;
-
-        setAppState('GENERATING_PERSONAS');
-        setError(null);
-        try {
-            const newPersonas = await generatePersonas(
-                personaGenGoals,
-                personaGenDemographics,
-                personaGenSkillLevel
-            );
-            setGeneratedPersonas(prev => [...prev, ...newPersonas]);
-        } catch (e: any) {
-            setError(e.message || 'Failed to generate personas.');
-        } finally {
-            setAppState('IDLE');
-        }
-    };
-
-    const handleGeneratePersonasFromIdea = async () => {
-        if (!businessIdea.trim() || personaCount <= 0) return;
-        setAppState('GENERATING_PERSONAS');
-        setError(null);
-        try {
-            const newPersonas = await generatePersonasFromIdea(businessIdea, personaCount);
-            setGeneratedPersonas(prev => [...prev, ...newPersonas]);
-        } catch (e: any) {
-            setError(e.message || 'Failed to generate personas from idea.');
-        } finally {
-            setAppState('IDLE');
-        }
-    };
-
-    const handleSuggestJourneySteps = async () : Promise<string[]> => {
-        if (!prototypeUrl.trim()) {
-            setError("Please enter a prototype URL to get suggestions.");
-            return [];
-        }
-        setError(null);
-        try {
-            const steps = await suggestJourneySteps(prototypeUrl);
-            return steps;
-        } catch (e: any) {
-             setError(e.message || 'Failed to suggest steps.');
-             return [];
-        }
-    }
-
     const startProgressModal = (messages: string[] = funnyMessages) => {
         setIsProgressModalVisible(true);
         setProgress(0);
@@ -223,34 +189,111 @@ const App: React.FC = () => {
             setAppState('IDLE');
         }, 500);
     };
-    
-    const runSimulationForVersion = useCallback(async (
-        taskToRun: string,
-        url: string,
-        personas: Persona[]
-    ): Promise<Omit<SimulationVersion, 'version' | 'timestamp'>> => {
-        const liveResults: SessionResult[] = [];
-        for (const persona of personas) {
-            const result = await runSimulation(taskToRun, url, persona);
-            liveResults.push({ ...result, persona });
+
+    const handleGeneratePersonas = async () => {
+        if (!personaGenGoals.trim() || !personaGenDemographics.trim()) return;
+        
+        const intervals = startProgressModal(personaGenerationMessages);
+        setGeneratingPersonaMethod('details');
+        setError(null);
+        try {
+            const newPersonas = await generatePersonas(
+                personaGenGoals,
+                personaGenDemographics,
+                personaGenSkillLevel
+            );
+            setGeneratedPersonas(prev => [...prev, ...newPersonas]);
+        } catch (e: any) {
+            setError(e.message || 'Failed to generate personas.');
+        } finally {
+            stopProgressModal(intervals);
+            setGeneratingPersonaMethod(null);
         }
+    };
+
+    const handleGeneratePersonasFromIdea = async () => {
+        if (!businessIdea.trim() || personaCount <= 0) return;
+        const intervals = startProgressModal(personaGenerationMessages);
+        setGeneratingPersonaMethod('idea');
+        setError(null);
+        try {
+            const newPersonas = await generatePersonasFromIdea(businessIdea, personaCount);
+            setGeneratedPersonas(prev => [...prev, ...newPersonas]);
+        } catch (e: any) {
+            setError(e.message || 'Failed to generate personas from idea.');
+        } finally {
+            stopProgressModal(intervals);
+            setGeneratingPersonaMethod(null);
+        }
+    };
+
+    const handleSuggestJourneySteps = async () : Promise<string[]> => {
+        if (!prototypeUrl.trim()) {
+            setError("Please enter a prototype URL to get suggestions.");
+            return [];
+        }
+        setError(null);
+        try {
+            const steps = await suggestJourneySteps(prototypeUrl);
+            return steps;
+        } catch (e: any) {
+             setError(e.message || 'Failed to suggest steps.');
+             return [];
+        }
+    }
+    
+    const runAllPersonasForUrl = async (task: string, url: string, personas: Persona[]): Promise<SessionResult[]> => {
+        const results: SessionResult[] = [];
+        for (const persona of personas) {
+            const result = await runSimulation(task, url, persona);
+            results.push({ ...result, persona });
+        }
+        return results;
+    }
+
+    const runFullSimulation = useCallback(async (
+        taskToRun: string,
+        personasToTest: Persona[],
+        isCompetitorTest: boolean,
+        mainUrl: string,
+        competitorTestUrl?: string,
+    ): Promise<Omit<SimulationVersion, 'version' | 'timestamp'>> => {
+        setAppState('SIMULATING');
+        
+        const yourSiteResults = await runAllPersonasForUrl(taskToRun, mainUrl, personasToTest);
+        
+        let competitorSiteResults: SessionResult[] | undefined = undefined;
+        if (isCompetitorTest && competitorTestUrl) {
+            competitorSiteResults = await runAllPersonasForUrl(taskToRun, competitorTestUrl, personasToTest);
+        }
+
         setAppState('ANALYZING');
-        const analysis = await analyzeResults(liveResults);
-        return { sessionResults: liveResults, analysis };
+        let analysis: AnalysisResult | null = null;
+        if (isCompetitorTest && competitorSiteResults) {
+            analysis = await analyzeCompetitorResults(yourSiteResults, competitorSiteResults);
+        } else {
+            analysis = await analyzeResults(yourSiteResults);
+        }
+
+        return { yourSiteResults, competitorSiteResults, analysis };
+
     }, []);
 
     const executeNewSimulation = useCallback(async (
         taskToRun: string,
         personasToTest: Persona[],
         testType: TestTypeTag,
-        url: string
+        url: string,
+        isCompetitor: boolean,
+        compUrl?: string,
     ) => {
         const intervals = startProgressModal();
-        setAppState('SIMULATING');
         setError(null);
         try {
-            const { sessionResults, analysis } = await runSimulationForVersion(taskToRun, url, personasToTest);
-            const historySummary = await generateHistorySummary(taskToRun, sessionResults);
+            const { yourSiteResults, competitorSiteResults, analysis } = await runFullSimulation(taskToRun, personasToTest, isCompetitor, url, compUrl);
+            
+            const resultsForSummary = yourSiteResults;
+            const historySummary = await generateHistorySummary(taskToRun, resultsForSummary);
             
             const getPersonaTypeTag = (): PersonaTypeTag => {
                 const hasNovice = selectedPersonaIds.has('novice-user');
@@ -269,12 +312,18 @@ const App: React.FC = () => {
                 title: historySummary.title,
                 fullTask: taskToRun,
                 prototypeUrl: url,
-                tags: { testType: testType, personaType: getPersonaTypeTag() },
+                competitorUrl: compUrl,
+                tags: { 
+                    testType: isCompetitor ? 'Competitor Analysis' : testType, 
+                    personaType: getPersonaTypeTag(),
+                    isCompetitorAnalysis: isCompetitor,
+                },
                 personas: personasToTest,
                 versions: [{
                     version: 1,
                     timestamp: new Date().toLocaleString(),
-                    sessionResults,
+                    yourSiteResults,
+                    competitorSiteResults,
                     analysis,
                 }],
             };
@@ -286,7 +335,7 @@ const App: React.FC = () => {
         } finally {
             stopProgressModal(intervals);
         }
-    }, [selectedPersonaIds, runSimulationForVersion]);
+    }, [selectedPersonaIds, runFullSimulation]);
 
     const handleStartSimulation = useCallback(async () => {
         if (selectedPersonaIds.size === 0 || !prototypeUrl.trim()) return;
@@ -319,27 +368,7 @@ const App: React.FC = () => {
                     setGeneratedPlan(plan);
 
                     const task = `Execute the following AI-generated test plan:\n${plan.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
-                    
-                    setAppState('SIMULATING');
-                    const { sessionResults, analysis } = await runSimulationForVersion(task, prototypeUrl, selectedPersonas);
-                    const historySummary = await generateHistorySummary(task, sessionResults);
-
-                    const newHistoryEntry: HistoryEntry = {
-                        id: `sim-${Date.now()}`,
-                        title: historySummary.title,
-                        fullTask: task,
-                        prototypeUrl,
-                        tags: { testType: 'Lazy Mode', personaType: 'Custom' },
-                        personas: selectedPersonas,
-                        versions: [{
-                            version: 1,
-                            timestamp: new Date().toLocaleString(),
-                            sessionResults,
-                            analysis,
-                        }],
-                    };
-                    setHistory(prev => [newHistoryEntry, ...prev]);
-                    setActiveView(newHistoryEntry.id);
+                    await executeNewSimulation(task, selectedPersonas, 'Lazy Mode', prototypeUrl, false);
                 } catch (e: any) {
                     setError(e.message || 'An unknown error occurred during the process.');
                 } finally {
@@ -349,9 +378,9 @@ const App: React.FC = () => {
         } else {
             if (!currentTask.trim()) return;
             const testType: TestTypeTag = testMode === 'SINGLE_TASK' ? 'Specific Task' : 'User Journey';
-            await executeNewSimulation(currentTask, selectedPersonas, testType, prototypeUrl);
+            await executeNewSimulation(currentTask, selectedPersonas, testType, prototypeUrl, isCompetitorMode, competitorUrl);
         }
-    }, [selectedPersonaIds, currentTask, prototypeUrl, generatedPersonas, testMode, reviewPlan, executeNewSimulation]);
+    }, [selectedPersonaIds, currentTask, prototypeUrl, generatedPersonas, testMode, reviewPlan, executeNewSimulation, isCompetitorMode, competitorUrl]);
 
     const handleRunReviewedPlan = useCallback(async () => {
         if (generatedPlan.length === 0) {
@@ -362,7 +391,7 @@ const App: React.FC = () => {
         const allPersonas = [...hardcodedPersonas, ...generatedPersonas];
         const selectedPersonas = allPersonas.filter(p => selectedPersonaIds.has(p.id));
 
-        await executeNewSimulation(task, selectedPersonas, 'Lazy Mode', prototypeUrl);
+        await executeNewSimulation(task, selectedPersonas, 'Lazy Mode', prototypeUrl, false);
 
     }, [generatedPlan, selectedPersonaIds, generatedPersonas, prototypeUrl, executeNewSimulation]);
 
@@ -379,18 +408,23 @@ const App: React.FC = () => {
         setActiveView(historyEntryId);
 
         try {
-            const { sessionResults, analysis } = await runSimulationForVersion(entryToRerun.fullTask, entryToRerun.prototypeUrl, entryToRerun.personas);
+            const { yourSiteResults, competitorSiteResults, analysis } = await runFullSimulation(
+                entryToRerun.fullTask, 
+                entryToRerun.personas,
+                !!entryToRerun.competitorUrl,
+                entryToRerun.prototypeUrl,
+                entryToRerun.competitorUrl
+            );
             
-            const newVersion: SimulationVersion = {
-                version: entryToRerun.versions.length + 1,
-                timestamp: new Date().toLocaleString(),
-                sessionResults,
-                analysis,
-            };
+            const newVersion: Omit<SimulationVersion, 'version' | 'timestamp'> = { yourSiteResults, competitorSiteResults, analysis };
 
             setHistory(prevHistory => prevHistory.map(h => 
                 h.id === historyEntryId 
-                    ? { ...h, versions: [...h.versions, newVersion] }
+                    ? { ...h, versions: [...h.versions, {
+                        ...newVersion,
+                        version: h.versions.length + 1,
+                        timestamp: new Date().toLocaleString(),
+                      }] }
                     : h
             ));
 
@@ -400,7 +434,7 @@ const App: React.FC = () => {
         } finally {
             stopProgressModal(intervals);
         }
-    }, [history, runSimulationForVersion]);
+    }, [history, runFullSimulation]);
 
 
     const handleNewSimulation = () => {
@@ -420,6 +454,8 @@ const App: React.FC = () => {
         setAppState('IDLE');
         setGeneratedPlan([]);
         setReviewPlan(true);
+        setIsCompetitorMode(false);
+        setCompetitorUrl('');
     };
 
     const handleGoHome = () => {
@@ -428,7 +464,7 @@ const App: React.FC = () => {
     };
     
     const renderMainContent = () => {
-        const isBusy = appState !== 'IDLE';
+        const isBusy = appState !== 'IDLE' || !!generatingPersonaMethod;
         
         if (activeView === 'home') {
              return <HomePage onStartNew={() => setActiveView('new')} recentHistory={history.slice(0, 3)} onSelectHistory={setActiveView} />;
@@ -454,7 +490,7 @@ const App: React.FC = () => {
                         selectedPersonaIds={selectedPersonaIds}
                         togglePersonaSelection={togglePersonaSelection}
                         onStartSimulation={handleStartSimulation}
-                        isSimulating={isBusy}
+                        isSimulating={appState !== 'IDLE'}
                         personaGenGoals={personaGenGoals}
                         setPersonaGenGoals={setPersonaGenGoals}
                         personaGenDemographics={personaGenDemographics}
@@ -462,7 +498,7 @@ const App: React.FC = () => {
                         personaGenSkillLevel={personaGenSkillLevel}
                         setPersonaGenSkillLevel={setPersonaGenSkillLevel}
                         onGeneratePersonas={handleGeneratePersonas}
-                        isGeneratingPersonas={appState === 'GENERATING_PERSONAS'}
+                        generatingPersonaMethod={generatingPersonaMethod}
                         businessIdea={businessIdea}
                         setBusinessIdea={setBusinessIdea}
                         personaCount={personaCount}
@@ -471,6 +507,10 @@ const App: React.FC = () => {
                         onSuggestJourneySteps={handleSuggestJourneySteps}
                         reviewPlan={reviewPlan}
                         setReviewPlan={setReviewPlan}
+                        isCompetitorMode={isCompetitorMode}
+                        setIsCompetitorMode={setIsCompetitorMode}
+                        competitorUrl={competitorUrl}
+                        setCompetitorUrl={setCompetitorUrl}
                     />
                 </div>
             );
@@ -482,13 +522,13 @@ const App: React.FC = () => {
                     plan={generatedPlan}
                     setPlan={setGeneratedPlan}
                     onRun={handleRunReviewedPlan}
-                    isSimulating={isBusy}
+                    isSimulating={appState !== 'IDLE'}
                 />
             );
         }
 
         if (activeHistoryEntry) {
-            return <Dashboard historyEntry={activeHistoryEntry} onGoHome={handleGoHome} onRerun={handleRerunSimulation} isRerunning={isBusy} />;
+            return <Dashboard historyEntry={activeHistoryEntry} onGoHome={handleGoHome} onRerun={handleRerunSimulation} isRerunning={appState !== 'IDLE'} />;
         }
 
         return <p>History item not found.</p>;

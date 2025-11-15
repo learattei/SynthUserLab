@@ -1,4 +1,3 @@
-
 export interface Persona {
   id: string;
   name: string;
@@ -27,9 +26,28 @@ export interface AnalysisIssue {
 }
 
 export interface AnalysisResult {
-  summary: string;
-  issues: AnalysisIssue[];
+    summary: string;
+    issues: AnalysisIssue[];
+    personaFeedback: {
+        personaName: string;
+        feedback: string;
+    }[];
+
+    // New nested objects for competitor results
+    competitorSiteAnalysis?: {
+        summary: string;
+        issues: AnalysisIssue[];
+        personaFeedback: {
+            personaName: string;
+            feedback: string;
+        }[];
+    };
+    competitorAnalysis?: {
+        winner: 'Your Site' | 'Competitor Site' | 'Tie';
+        reason: string;
+    };
 }
+
 
 // Fix: Add the missing BusinessAnalysisResult interface.
 export interface BusinessAnalysisResult {
@@ -48,12 +66,13 @@ export interface FrictionSummary {
 export type TestMode = 'SINGLE_TASK' | 'USER_JOURNEY' | 'LAZY';
 
 export type PersonaTypeTag = 'Novice' | 'Expert' | 'Custom' | 'Mixed';
-export type TestTypeTag = 'Specific Task' | 'User Journey' | 'Lazy Mode';
+export type TestTypeTag = 'Specific Task' | 'User Journey' | 'Lazy Mode' | 'Competitor Analysis';
 
 export interface SimulationVersion {
     version: number;
     timestamp: string;
-    sessionResults: SessionResult[];
+    yourSiteResults: SessionResult[];
+    competitorSiteResults?: SessionResult[];
     analysis: AnalysisResult | null;
 }
 
@@ -62,9 +81,11 @@ export interface HistoryEntry {
     title: string;
     fullTask: string;
     prototypeUrl: string;
+    competitorUrl?: string;
     tags: {
         testType: TestTypeTag;
         personaType: PersonaTypeTag;
+        isCompetitorAnalysis?: boolean;
     };
     personas: Persona[]; // The personas used for all versions
     versions: SimulationVersion[];
