@@ -8,6 +8,7 @@ import ClipboardIcon from './icons/ClipboardIcon';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import CircularArrowIcon from './icons/CircularArrowIcon';
 import ZapIcon from './icons/ZapIcon';
+import DownloadIcon from './icons/DownloadIcon';
 
 interface DashboardProps {
   historyEntry: HistoryEntry;
@@ -104,12 +105,24 @@ const Dashboard: React.FC<DashboardProps> = ({ historyEntry, onGoHome, onRerun, 
       return [...activeVersion.analysis.issues].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
   }, [activeVersion]);
 
+  const handleDownloadPlan = () => {
+    const blob = new Blob([historyEntry.fullTask], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `test-plan-${historyEntry.id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   if (!activeVersion || !activeVersion.analysis) {
     return <div className="text-center p-8">Loading analysis... The AI is hard at work!</div>;
   }
   
   const { analysis, sessionResults } = activeVersion;
+  const isLazyMode = historyEntry.tags.testType === 'Lazy Mode';
 
   return (
     <div className="w-full max-w-7xl mx-auto p-4 md:p-0 animate-fade-in">
@@ -122,7 +135,7 @@ const Dashboard: React.FC<DashboardProps> = ({ historyEntry, onGoHome, onRerun, 
             >
                 <ArrowLeftIcon className="w-6 h-6" />
             </button>
-            <h1 className="font-serif text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100">Simulation Report</h1>
+            <h1 className="font-serif text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100">{historyEntry.title}</h1>
         </div>
          <div className="flex items-center gap-2">
              <button
@@ -235,6 +248,21 @@ const Dashboard: React.FC<DashboardProps> = ({ historyEntry, onGoHome, onRerun, 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
                 {/* Left Column */}
                 <div className="flex flex-col gap-8">
+                     {isLazyMode && (
+                        <section className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-6 shadow-soft animate-slide-up">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="font-serif text-2xl font-bold text-blue-600 dark:text-blue-400 flex items-center"><LightbulbIcon className="w-6 h-6 mr-3" /> AI-Generated Test Plan</h2>
+                                <button
+                                    onClick={handleDownloadPlan}
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:hover:bg-blue-900 transition-colors"
+                                >
+                                    <DownloadIcon className="w-4 h-4" />
+                                    Download Plan
+                                </button>
+                            </div>
+                             <pre className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap font-sans bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">{historyEntry.fullTask}</pre>
+                        </section>
+                    )}
                     <section className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-6 shadow-soft animate-slide-up">
                         <h2 className="font-serif text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400 flex items-center"><LightbulbIcon className="w-6 h-6 mr-3" /> AI Analysis Summary</h2>
                         <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{analysis.summary}</p>
@@ -288,7 +316,9 @@ const Dashboard: React.FC<DashboardProps> = ({ historyEntry, onGoHome, onRerun, 
                             <h2 className="font-serif text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400">Session Replay: {selectedSession.persona.name}</h2>
                             <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/80">
                                 <p className="flex items-center text-lg font-bold mb-2 text-slate-900 dark:text-slate-100"><UserIcon className="w-5 h-5 mr-2" /> {selectedSession.persona.name} ({selectedSession.persona.skillLevel})</p>
-                                <div className="text-sm text-slate-700 dark:text-slate-300 mb-2"><strong>Task:</strong> <pre className="whitespace-pre-wrap font-sans">{historyEntry.fullTask}</pre></div>
+                                {historyEntry.tags.testType !== 'Lazy Mode' && (
+                                    <div className="text-sm text-slate-700 dark:text-slate-300 mb-2"><strong>Task:</strong> <pre className="whitespace-pre-wrap font-sans">{historyEntry.fullTask}</pre></div>
+                                )}
                                 <p className="text-sm text-slate-500 dark:text-slate-400 italic">"{selectedSession.persona.description}"</p>
                             </div>
                             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 -mr-2">

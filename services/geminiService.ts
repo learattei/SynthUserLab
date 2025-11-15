@@ -114,6 +114,46 @@ export const suggestJourneySteps = async (url: string): Promise<string[]> => {
     }
 }
 
+export const generateLazyTestPlan = async (url: string, persona: Persona): Promise<string[]> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `You are a senior UX researcher creating a test plan. Analyze the website at the URL provided and create a customized, sequential, multi-step user journey test plan for the given user persona.
+
+            **IMPORTANT:** First, analyze the page for a user authentication process (sign-up or login).
+            - If a sign-up or registration form is the primary entry point, your test plan MUST start with the necessary steps to create a new account. Use realistic placeholder data.
+            - If a login form is present, your test plan MUST start with the necessary steps to log in. Use placeholder credentials like 'user@example.com' and 'password123'.
+            - After the sign-up or login steps, the rest of the plan MUST detail tasks a logged-in user would perform to achieve their goals on the site.
+            - If no authentication is required, create the plan as normal based on the site's public features.
+            
+            The final plan should reflect the persona's goals and skill level.
+
+            Website URL: \`${url}\`
+            
+            User Persona:
+            - Name: ${persona.name} (${persona.skillLevel})
+            - Description: ${persona.description}
+            - Primary Goal: ${persona.goals[0]}
+            
+            Generate a realistic test plan of 4 to 6 logical steps that this persona would likely take to achieve their goal on this specific website. The steps should be clear, actionable, and test a meaningful interaction flow.
+            
+            Return the result ONLY as a JSON array of strings.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                },
+            }
+        });
+        const planJson = JSON.parse(response.text);
+        return planJson as string[];
+    } catch (error) {
+        console.error("Error generating lazy test plan:", error);
+        throw new Error("Failed to generate the test plan.");
+    }
+}
+
 
 export const runSimulation = async (
     userTask: string,

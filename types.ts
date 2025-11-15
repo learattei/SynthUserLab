@@ -45,10 +45,10 @@ export interface FrictionSummary {
   suggestion: string;
 }
 
-export type TestMode = 'SINGLE_TASK' | 'USER_JOURNEY';
+export type TestMode = 'SINGLE_TASK' | 'USER_JOURNEY' | 'LAZY';
 
 export type PersonaTypeTag = 'Novice' | 'Expert' | 'Custom' | 'Mixed';
-export type TestTypeTag = 'Specific Task' | 'User Journey';
+export type TestTypeTag = 'Specific Task' | 'User Journey' | 'Lazy Mode';
 
 export interface SimulationVersion {
     version: number;
@@ -74,6 +74,7 @@ export interface HistoryEntry {
 export type AppState =
   | 'CONFIG'
   | 'GENERATING_PERSONAS'
+  | 'GENERATING_PLAN'
   | 'SIMULATING'
   | 'ANALYZING'
   | 'SHOWING_RESULTS';

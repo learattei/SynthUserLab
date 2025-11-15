@@ -39,6 +39,9 @@ interface InputFormProps {
     onGeneratePersonasFromIdea: () => void;
     // Journey Suggestions
     onSuggestJourneySteps: () => Promise<string[]>;
+    // Lazy Mode
+    reviewPlan: boolean;
+    setReviewPlan: (value: boolean) => void;
 }
 
 const FormCard: React.FC<{title:string, children: React.ReactNode, step: number}> = ({title, children, step}) => (
@@ -185,6 +188,7 @@ const InputForm: React.FC<InputFormProps> = ({
     personas, selectedPersonaIds, togglePersonaSelection, onStartSimulation, isSimulating,
     personaGenGoals, setPersonaGenGoals, personaGenDemographics, setPersonaGenDemographics, personaGenSkillLevel, setPersonaGenSkillLevel, onGeneratePersonas, isGeneratingPersonas,
     businessIdea, setBusinessIdea, personaCount, setPersonaCount, onGeneratePersonasFromIdea, onSuggestJourneySteps,
+    reviewPlan, setReviewPlan
 }) => {
     
     const skillLevelConfig = {
@@ -193,7 +197,9 @@ const InputForm: React.FC<InputFormProps> = ({
         'Expert': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
     };
     
-    const isTaskDefined = testMode === 'SINGLE_TASK' ? userTask.trim().length > 0 : journeySteps.length > 0;
+    const isTaskDefined = (testMode === 'SINGLE_TASK' && userTask.trim().length > 0) 
+        || (testMode === 'USER_JOURNEY' && journeySteps.length > 0)
+        || (testMode === 'LAZY');
     
     const canStart = isTaskDefined && prototypeUrl.trim().length > 0;
     const isBusy = isSimulating || isGeneratingPersonas;
@@ -205,9 +211,10 @@ const InputForm: React.FC<InputFormProps> = ({
                     <div className="space-y-6">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Test Type</label>
-                            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-900/50 rounded-xl">
-                               <ModeButton label="Specific Task Test" isActive={testMode === 'SINGLE_TASK'} onClick={() => setTestMode('SINGLE_TASK')} />
-                               <ModeButton label="User Journey Test" isActive={testMode === 'USER_JOURNEY'} onClick={() => setTestMode('USER_JOURNEY')} />
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-1 bg-slate-100 dark:bg-slate-900/50 rounded-xl">
+                               <ModeButton label="Specific Task" isActive={testMode === 'SINGLE_TASK'} onClick={() => setTestMode('SINGLE_TASK')} />
+                               <ModeButton label="User Journey" isActive={testMode === 'USER_JOURNEY'} onClick={() => setTestMode('USER_JOURNEY')} />
+                               <ModeButton label="Lazy Mode" isActive={testMode === 'LAZY'} onClick={() => setTestMode('LAZY')} />
                             </div>
                         </div>
                         <div>
@@ -243,6 +250,23 @@ const InputForm: React.FC<InputFormProps> = ({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Journey Builder</label>
                                 <JourneyBuilder steps={journeySteps} setSteps={setJourneySteps} onSuggest={onSuggestJourneySteps} isBusy={isBusy} />
+                            </div>
+                        )}
+                        {testMode === 'LAZY' && (
+                            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={reviewPlan}
+                                        onChange={(e) => setReviewPlan(e.target.checked)}
+                                        className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        disabled={isBusy}
+                                    />
+                                    <span className="text-slate-700 dark:text-slate-300">
+                                        I want to double check the testing plan before running the simulation.
+                                    </span>
+                                </label>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 pl-8">If unchecked, the AI-generated plan will be executed immediately.</p>
                             </div>
                         )}
                     </div>

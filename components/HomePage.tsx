@@ -13,6 +13,7 @@ interface HomePageProps {
 const tagColors = {
     'Specific Task': 'bg-violet-100 text-violet-800 dark:bg-violet-900/70 dark:text-violet-300',
     'User Journey': 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/70 dark:text-fuchsia-300',
+    'Lazy Mode': 'bg-teal-100 text-teal-800 dark:bg-teal-900/70 dark:text-teal-300',
     'Novice': 'bg-sky-100 text-sky-800 dark:bg-sky-900/70 dark:text-sky-300',
     'Expert': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-300',
     'Custom': 'bg-amber-100 text-amber-800 dark:bg-amber-900/70 dark:text-amber-300',
@@ -41,7 +42,9 @@ const HomePage: React.FC<HomePageProps> = ({ onStartNew, recentHistory, onSelect
             {recentHistory.map((entry, index) => {
               const latestVersion = entry.versions[entry.versions.length - 1];
               const wasSuccessful = latestVersion.sessionResults.every(r => r.completed);
-              const descriptionText = entry.tags.testType === 'User Journey'
+              const descriptionText = entry.tags.testType === 'Lazy Mode'
+                ? 'Generated Test Plan'
+                : entry.tags.testType === 'User Journey'
                 ? 'Tested defined user journey'
                 : (entry.fullTask.length > 80 ? `${entry.fullTask.substring(0, 80)}...` : entry.fullTask);
 
