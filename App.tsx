@@ -175,7 +175,7 @@ const App: React.FC = () => {
     const startProgressModal = () => {
         setIsProgressModalVisible(true);
         setProgress(0);
-        setProgressMessage(funnyMessages[0]);
+        setProgressMessage(funnyMessages[Math.floor(Math.random() * funnyMessages.length)]);
 
         const progressInterval = setInterval(() => {
             setProgress(oldProgress => {
@@ -185,10 +185,16 @@ const App: React.FC = () => {
             });
         }, 800);
 
-        let messageIndex = 0;
         const messageInterval = setInterval(() => {
-            messageIndex = (messageIndex + 1) % funnyMessages.length;
-            setProgressMessage(funnyMessages[messageIndex]);
+            setProgressMessage(prevMessage => {
+                let newMessage = prevMessage;
+                if (funnyMessages.length > 1) {
+                    while (newMessage === prevMessage) {
+                        newMessage = funnyMessages[Math.floor(Math.random() * funnyMessages.length)];
+                    }
+                }
+                return newMessage;
+            });
         }, 3000);
 
         return { progressInterval, messageInterval };
